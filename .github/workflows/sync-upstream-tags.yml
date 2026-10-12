@@ -1,0 +1,41 @@
+name: Sync upstream tags
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-tags
+  cancel-in-progress: false
+
+jobs:
+  sync-tags:
+    name: Sync tags from upstream and apply landscape patch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Git
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/bggRGjQaUbCoE/PiliPlus.git
+
+      - name: Sync eligible upstream tags
+        env:
+          UPSTREAM_URL: https://github.com/bggRGjQaUbCoE/PiliPlus.git
+          BASELINE_TAG: "2.1.5"
+          LANDSCAPE_PATCH_SHA: "a5aa969127219898bb57e3c7dd6933d07093914e"
+          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
+        shell: bash
+        run: bash scripts/sync-upstream-tags.sh
