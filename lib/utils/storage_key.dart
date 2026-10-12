@@ -37,6 +37,8 @@ abstract final class SettingBoxKey {
       feedBackEnable = 'feedBackEnable',
       enableLongShowControl = 'enableLongShowControl',
       horizontalScreen = 'horizontalScreen',
+      uiOrientationMode = 'uiOrientationMode',
+      verticalVideoPortraitInFullscreen = 'verticalVideoPortraitInFullscreen',
       CDNService = 'CDNService',
       disableAudioCDN = 'disableAudioCDN',
       autoPiP = 'autoPiP',
