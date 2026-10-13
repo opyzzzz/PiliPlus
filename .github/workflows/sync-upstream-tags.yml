@@ -1,0 +1,67 @@
+name: Sync upstream tags
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (do not push anything)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-tags
+  cancel-in-progress: false
+
+jobs:
+  sync-tags:
+    name: Sync tags from upstream and apply landscape patch
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      UPSTREAM_URL: https://github.com/bggRGjQaUbCoE/PiliPlus.git
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Git
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream "$UPSTREAM_URL"
+
+      - name: Sync eligible upstream tags
+        env:
+          # Only tags at or after this version are considered. The patch is
+          # developed against the latest upstream code, so older tags are not
+          # expected to accept it and will be reported as "not applicable".
+          BASELINE_TAG: "2.1.6.2"
+          # Updated 2026-10-13.
+          # PR #3 (opyzzzz/feat/ui-landscape-orientation-squashed-single) was merged
+          # into main as a merge commit 0b14e6d6706ad36130cd120f37e7db3d735ec52a.
+          # A merge commit cannot be cherry-picked without -m, so we pin the
+          # single feature commit that the PR introduced instead.
+          LANDSCAPE_PATCH_SHA: "9ded16722a7982e539c339e6ade1872996a65b65"
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        shell: bash
+        run: bash scripts/sync-upstream-tags.sh
+
+      - name: Report failure
+        if: failure() || cancelled()
+        shell: bash
+        run: |
+          msg="❌ Tag sync failed. See job logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "$msg" >&2
+          {
+            echo ""
+            echo "---"
+            echo "$msg"
+          } >> "$GITHUB_STEP_SUMMARY"
