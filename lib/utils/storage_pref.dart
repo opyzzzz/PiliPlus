@@ -19,7 +19,6 @@ import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
-import 'package:PiliPlus/models/common/ui_orientation_mode.dart';
 import 'package:PiliPlus/models/common/video/audio_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/live_quality.dart';
@@ -633,21 +632,6 @@ abstract final class Pref {
     return horizontalScreen;
   }
 
-  static UiOrientationMode get uiOrientationMode {
-    final index = _setting.get(
-      SettingBoxKey.uiOrientationMode,
-      defaultValue: UiOrientationMode.off.index,
-    );
-    return UiOrientationMode.values[
-      (index as int).clamp(0, UiOrientationMode.values.length - 1).toInt()
-    ];
-  }
-
-  static bool get verticalVideoPortraitInFullscreen => _setting.get(
-    SettingBoxKey.verticalVideoPortraitInFullscreen,
-    defaultValue: false,
-  );
-
   static String get banWordForDyn =>
       _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
 
@@ -934,9 +918,6 @@ abstract final class Pref {
 
   static bool get showFsScreenshotBtn =>
       _setting.get(SettingBoxKey.showFsScreenshotBtn, defaultValue: true);
-
-  static bool get showFsLandscapeBtn =>
-      _setting.get(SettingBoxKey.showFsLandscapeBtn, defaultValue: true);
 
   static bool get showFsLockBtn =>
       _setting.get(SettingBoxKey.showFsLockBtn, defaultValue: true);

@@ -1,11 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/models/common/ui_orientation_mode.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
 
@@ -64,28 +60,6 @@ Future<void>? fullMode() {
   return _setPreferredOrientations(
     const [.portraitUp, .portraitDown, .landscapeLeft, .landscapeRight],
   );
-}
-
-/// Applies the configured UI orientation. [off] preserves legacy behavior.
-Future<void>? applyUiOrientationMode() {
-  final orientations = switch (Pref.uiOrientationMode) {
-    UiOrientationMode.off => Pref.horizontalScreen
-        ? const [
-            DeviceOrientation.portraitUp,
-            DeviceOrientation.portraitDown,
-            DeviceOrientation.landscapeLeft,
-            DeviceOrientation.landscapeRight,
-          ]
-        : const [DeviceOrientation.portraitUp],
-    UiOrientationMode.landscape => const [DeviceOrientation.landscapeLeft],
-    UiOrientationMode.reverseLandscape => const [DeviceOrientation.landscapeRight],
-  };
-  return _setPreferredOrientations(orientations);
-}
-
-Future<void> setUiOrientationMode(UiOrientationMode mode) async {
-  await GStorage.setting.put(SettingBoxKey.uiOrientationMode, mode.index);
-  await applyUiOrientationMode();
 }
 
 bool _showSystemBar = true;
