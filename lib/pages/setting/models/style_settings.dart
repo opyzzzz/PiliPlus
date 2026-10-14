@@ -13,6 +13,7 @@ import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
+import 'package:PiliPlus/models/common/landscape_mode.dart';
 import 'package:PiliPlus/models/common/mine_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
@@ -71,6 +72,17 @@ List<SettingsModel> get styleSettings => [
     setKey: SettingBoxKey.horizontalScreen,
     defaultVal: Pref.horizontalScreen,
     onChanged: _onHorizontalScreenChanged,
+  ),
+  PopupModel(
+    title: '横屏模式',
+    leading: const Icon(Icons.screen_rotation_outlined),
+    value: () => Pref.landscapeMode,
+    items: LandscapeMode.values,
+    onSelected: (value, setState) async {
+      await GStorage.setting.put(SettingBoxKey.landscapeMode, value.index);
+      applyLandscapeMode();
+      setState();
+    },
   ),
   const SwitchModel(
     title: '改用侧边栏',

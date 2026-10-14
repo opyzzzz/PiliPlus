@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:PiliPlus/models/common/landscape_mode.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
 
@@ -40,27 +42,47 @@ Future<void>? _setPreferredOrientations(List<DeviceOrientation> orientations) {
   return SystemChrome.setPreferredOrientations(orientations);
 }
 
+List<DeviceOrientation> _resolveOrientations(
+  List<DeviceOrientation> requested,
+) => switch (Pref.landscapeMode) {
+  LandscapeMode.disabled => requested,
+  LandscapeMode.landscape => const [.landscapeLeft],
+  LandscapeMode.reverseLandscape => const [.landscapeRight],
+};
+
 Future<void>? portraitUpMode() {
-  return _setPreferredOrientations(const [.portraitUp]);
+  return _setPreferredOrientations(_resolveOrientations(const [.portraitUp]));
 }
 
 Future<void>? portraitDownMode() {
-  return _setPreferredOrientations(const [.portraitDown]);
+  return _setPreferredOrientations(_resolveOrientations(const [.portraitDown]));
 }
 
 Future<void>? landscapeLeftMode() {
-  return _setPreferredOrientations(const [.landscapeLeft]);
+  return _setPreferredOrientations(_resolveOrientations(const [.landscapeLeft]));
 }
 
 Future<void>? landscapeRightMode() {
-  return _setPreferredOrientations(const [.landscapeRight]);
+  return _setPreferredOrientations(_resolveOrientations(const [.landscapeRight]));
 }
 
 Future<void>? fullMode() {
   return _setPreferredOrientations(
-    const [.portraitUp, .portraitDown, .landscapeLeft, .landscapeRight],
+    _resolveOrientations(
+      const [.portraitUp, .portraitDown, .landscapeLeft, .landscapeRight],
+    ),
   );
 }
+
+/// Applies the global landscape preference, or restores the original
+/// orientation policy when the preference is disabled.
+Future<void>? applyLandscapeMode() => switch (Pref.landscapeMode) {
+  LandscapeMode.disabled =>
+    Pref.horizontalScreen ? fullMode() : portraitUpMode(),
+  LandscapeMode.landscape => _setPreferredOrientations(const [.landscapeLeft]),
+  LandscapeMode.reverseLandscape =>
+    _setPreferredOrientations(const [.landscapeRight]),
+};
 
 bool _showSystemBar = true;
 bool get showSystemBar_ => _showSystemBar;
