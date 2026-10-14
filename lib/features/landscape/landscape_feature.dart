@@ -1,10 +1,10 @@
 import 'package:PiliPlus/models/common/landscape_mode.dart';
-import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart' show BoxDecoration, BorderRadius, Color, Colors, DecoratedBox, GestureDetector, Icon, Icons, Radius, SizedBox, Tooltip, Widget, Center, HitTestBehavior;
 import 'package:flutter/services.dart' show DeviceOrientation;
+
+import 'package:PiliPlus/features/landscape/landscape_policy.dart';
 
 /// Public entry point for the landscape feature.
 ///
@@ -15,65 +15,6 @@ typedef LandscapeOrientationApplier =
     Future<void>? Function(List<DeviceOrientation> orientations);
 
 abstract final class LandscapeFeature {
-  /// Build the player control for switching landscape direction.
-  ///
-  /// The host supplies the actions, while the feature owns the visual control
-  /// and its tap/long-press affordances.
-  static Widget buildToggleButton({
-    required void Function() onToggle,
-    required void Function() onLongPress,
-  }) => Tooltip(
-    message: '切换横屏方向（长按关闭）',
-    child: DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0x45000000),
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onToggle,
-        onLongPress: onLongPress,
-        child: const SizedBox(
-          width: 36,
-          height: 36,
-          child: Center(
-            child: Icon(
-              Icons.screen_rotation_outlined,
-              size: 20,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-
-  /// Creates the global landscape-mode setting row.
-  static PopupModel<LandscapeMode> buildModeSetting({
-    required void Function() applyMode,
-  }) => PopupModel(
-    title: '横屏模式',
-    leading: const Icon(Icons.screen_rotation_outlined),
-    value: () => Pref.landscapeMode,
-    items: LandscapeMode.values,
-    onSelected: (value, setState) async {
-      await setMode(value);
-      applyMode();
-      setState();
-    },
-  );
-
-  /// Whether the fullscreen player should display the landscape toggle.
-  static bool get showToggleButton => Pref.showFsLandscapeBtn;
-
-  /// Creates the player setting for showing the landscape toggle.
-  static SwitchModel buildShowToggleSetting() => const SwitchModel(
-    title: '全屏显示横屏切换按钮',
-    leading: Icon(Icons.screen_rotation_outlined),
-    setKey: SettingBoxKey.showFsLandscapeBtn,
-    defaultVal: true,
-  );
-
   /// Persist the selected global landscape mode.
   static Future<void> setMode(LandscapeMode mode) =>
       GStorage.setting.put(SettingBoxKey.landscapeMode, mode.index);
@@ -88,31 +29,18 @@ abstract final class LandscapeFeature {
   /// Disable the forced landscape policy.
   static Future<void> disable() => setMode(LandscapeMode.disabled);
 
-  /// Apply the global policy to a requested orientation set.
+  /// Resolve a requested orientation set using the configured policy.
   static List<DeviceOrientation> resolveOrientations(
     List<DeviceOrientation> requested,
-  ) => switch (Pref.landscapeMode) {
-    LandscapeMode.disabled => requested,
-    LandscapeMode.landscape => const [.landscapeLeft],
-    LandscapeMode.reverseLandscape => const [.landscapeRight],
-  };
+  ) => LandscapePolicy.resolveOrientations(Pref.landscapeMode, requested);
 
   /// Apply the configured policy through the host platform adapter.
   /// When disabled, preserve the default policy, including tablet adaptation.
   static Future<void>? apply(LandscapeOrientationApplier applyOrientations) =>
-      switch (Pref.landscapeMode) {
-        LandscapeMode.disabled =>
-          Pref.horizontalScreen
-              ? applyOrientations(const [
-                  .portraitUp,
-                  .portraitDown,
-                  .landscapeLeft,
-                  .landscapeRight,
-                ])
-              : applyOrientations(const [.portraitUp]),
-        LandscapeMode.landscape =>
-          applyOrientations(const [.landscapeLeft]),
-        LandscapeMode.reverseLandscape =>
-          applyOrientations(const [.landscapeRight]),
-      };
+      applyOrientations(
+        LandscapePolicy.orientationsFor(
+          Pref.landscapeMode,
+          horizontalScreen: Pref.horizontalScreen,
+        ),
+      );
 }

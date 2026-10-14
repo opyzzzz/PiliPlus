@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:PiliPlus/features/landscape/landscape_feature.dart';
+import 'package:PiliPlus/features/landscape/landscape_ui.dart';
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/style.dart';
@@ -1883,7 +1883,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             ),
 
           // 横屏模式切换
-          if (LandscapeFeature.showToggleButton)
+          if (LandscapeUi.showToggleButton)
             ViewSafeArea(
               left: false,
               right: !plPlayerController.removeSafeArea,
@@ -1896,7 +1896,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       offset: const Offset(0, 56),
                       child: Offstage(
                         offstage: !plPlayerController.showControls.value,
-                        child: LandscapeFeature.buildToggleButton(
+                        child: LandscapeUi.buildToggleButton(
                           onToggle: plPlayerController.toggleLandscapeMode,
                           onLongPress: plPlayerController.disableLandscapeMode,
                         ),
