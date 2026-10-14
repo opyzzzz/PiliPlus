@@ -2,7 +2,7 @@ import 'package:PiliPlus/models/common/landscape_mode.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/services.dart' show DeviceOrientation;
+import 'package:flutter/material.dart' show BoxDecoration, BorderRadius, Color, Colors, DecoratedBox, GestureDetector, Icon, Icons, Radius, SizedBox, Tooltip, Widget;\nimport 'package:flutter/services.dart' show DeviceOrientation;
 
 /// Public entry point for the landscape feature.
 ///
@@ -13,6 +13,39 @@ typedef LandscapeOrientationApplier =
     Future<void>? Function(List<DeviceOrientation> orientations);
 
 abstract final class LandscapeFeature {
+  /// Build the player control for switching landscape direction.
+  ///
+  /// The host supplies the actions, while the feature owns the visual control
+  /// and its tap/long-press affordances.
+  static Widget buildToggleButton({
+    required void Function() onToggle,
+    required void Function() onLongPress,
+  }) => Tooltip(
+    message: '切换横屏方向（长按关闭）',
+    child: DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Color(0x45000000),
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onToggle,
+        onLongPress: onLongPress,
+        child: const SizedBox(
+          width: 36,
+          height: 36,
+          child: Center(
+            child: Icon(
+              Icons.screen_rotation_outlined,
+              size: 20,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
   /// Persist the selected global landscape mode.
   static Future<void> setMode(LandscapeMode mode) =>
       GStorage.setting.put(SettingBoxKey.landscapeMode, mode.index);

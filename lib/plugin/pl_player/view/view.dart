@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:PiliPlus/features/landscape/landscape_feature.dart';
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/style.dart';
@@ -1895,21 +1896,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       offset: const Offset(0, 56),
                       child: Offstage(
                         offstage: !plPlayerController.showControls.value,
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            color: Color(0x45000000),
-                            borderRadius: BorderRadius.all(Radius.circular(8)),
-                          ),
-                          child: ComBtn(
-                            tooltip: '切换横屏方向（长按关闭）',
-                            icon: const Icon(
-                              Icons.screen_rotation_outlined,
-                              size: 20,
-                              color: Colors.white,
-                            ),
-                            onTap: plPlayerController.toggleLandscapeMode,
-                            onLongPress: plPlayerController.disableLandscapeMode,
-                          ),
+                        child: LandscapeFeature.buildToggleButton(
+                          onToggle: plPlayerController.toggleLandscapeMode,
+                          onLongPress: plPlayerController.disableLandscapeMode,
                         ),
                       ),
                     ),
