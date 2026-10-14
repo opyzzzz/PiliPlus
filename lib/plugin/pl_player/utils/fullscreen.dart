@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:PiliPlus/features/landscape/landscape_feature.dart';
+import 'package:PiliPlus/features/landscape/landscape_policy.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
@@ -34,10 +35,11 @@ Future<void> exitDesktopFullScreen() async {
 
 List<DeviceOrientation>? _lastOrientation;
 Future<void>? _setPreferredOrientations(List<DeviceOrientation> orientations) {
-  if (_lastOrientation == orientations) {
+  if (_lastOrientation != null &&
+      LandscapePolicy.sameOrientations(_lastOrientation!, orientations)) {
     return null;
   }
-  _lastOrientation = orientations;
+  _lastOrientation = List.unmodifiable(orientations);
   return SystemChrome.setPreferredOrientations(orientations);
 }
 

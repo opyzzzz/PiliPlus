@@ -4,6 +4,46 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('LandscapePolicy.sameOrientations', () {
+    test('treats separate lists with equal ordered values as equal', () {
+      final first = [DeviceOrientation.portraitUp, DeviceOrientation.landscapeLeft];
+      final second = [DeviceOrientation.portraitUp, DeviceOrientation.landscapeLeft];
+
+      expect(identical(first, second), isFalse);
+      expect(LandscapePolicy.sameOrientations(first, second), isTrue);
+    });
+
+    test('treats different values as unequal', () {
+      expect(
+        LandscapePolicy.sameOrientations(
+          const [DeviceOrientation.portraitUp],
+          const [DeviceOrientation.portraitDown],
+        ),
+        isFalse,
+      );
+    });
+
+    test('preserves order when comparing requests', () {
+      expect(
+        LandscapePolicy.sameOrientations(
+          const [DeviceOrientation.portraitUp, DeviceOrientation.landscapeLeft],
+          const [DeviceOrientation.landscapeLeft, DeviceOrientation.portraitUp],
+        ),
+        isFalse,
+      );
+    });
+
+    test('treats empty lists as equal', () {
+      expect(
+        LandscapePolicy.sameOrientations(
+          const <DeviceOrientation>[],
+          const <DeviceOrientation>[],
+        ),
+        isTrue,
+      );
+    });
+  });
+
   group('LandscapePolicy.resolveOrientations', () {
     test('preserves requested orientations when disabled', () {
       const requested = [DeviceOrientation.portraitDown];

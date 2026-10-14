@@ -1,4 +1,5 @@
 import 'package:PiliPlus/models/common/landscape_mode.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart' show DeviceOrientation;
 
 /// Pure orientation decisions for the landscape feature.
@@ -6,6 +7,15 @@ import 'package:flutter/services.dart' show DeviceOrientation;
 /// This class deliberately does not read preferences or call platform APIs,
 /// so each mode can be tested independently from storage and player lifecycle.
 abstract final class LandscapePolicy {
+  /// Whether two orientation requests contain the same ordered values.
+  ///
+  /// List equality must be structural here: separately allocated lists with
+  /// identical values should not trigger duplicate platform requests.
+  static bool sameOrientations(
+    List<DeviceOrientation> first,
+    List<DeviceOrientation> second,
+  ) => listEquals(first, second);
+
   static List<DeviceOrientation> resolveOrientations(
     LandscapeMode mode,
     List<DeviceOrientation> requested,
