@@ -1,4 +1,5 @@
 import 'package:PiliPlus/models/common/landscape_mode.dart';
+import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -45,6 +46,29 @@ abstract final class LandscapeFeature {
         ),
       ),
     ),
+  );
+
+  /// Creates the global landscape-mode setting row.
+  static PopupModel buildModeSetting({
+    required void Function() applyMode,
+  }) => PopupModel(
+    title: '横屏模式',
+    leading: const Icon(Icons.screen_rotation_outlined),
+    value: () => Pref.landscapeMode,
+    items: LandscapeMode.values,
+    onSelected: (value, setState) async {
+      await setMode(value);
+      applyMode();
+      setState();
+    },
+  );
+
+  /// Creates the player setting for showing the landscape toggle.
+  static SwitchModel buildShowToggleSetting() => const SwitchModel(
+    title: '全屏显示横屏切换按钮',
+    leading: Icon(Icons.screen_rotation_outlined),
+    setKey: SettingBoxKey.showFsLandscapeBtn,
+    defaultVal: true,
   );
 
   /// Persist the selected global landscape mode.
