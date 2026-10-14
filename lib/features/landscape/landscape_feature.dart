@@ -2,7 +2,8 @@ import 'package:PiliPlus/models/common/landscape_mode.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart' show BoxDecoration, BorderRadius, Color, Colors, DecoratedBox, GestureDetector, Icon, Icons, Radius, SizedBox, Tooltip, Widget;\nimport 'package:flutter/services.dart' show DeviceOrientation;
+import 'package:flutter/material.dart' show BoxDecoration, BorderRadius, Color, Colors, DecoratedBox, GestureDetector, Icon, Icons, Radius, SizedBox, Tooltip, Widget, Center, HitTestBehavior;
+import 'package:flutter/services.dart' show DeviceOrientation;
 
 /// Public entry point for the landscape feature.
 ///
