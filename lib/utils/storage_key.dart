@@ -141,6 +141,7 @@ abstract final class SettingBoxKey {
       directExitOnBack = 'directExitOnBack',
       quickFavId = 'quickFavId',
       showFsScreenshotBtn = 'showFsScreenshotBtn',
+      showFsLandscapeBtn = 'showFsLandscapeBtn',
       showFsLockBtn = 'showFsLockBtn',
       silentDownImg = 'silentDownImg',
       showMemberShop = 'showMemberShop',

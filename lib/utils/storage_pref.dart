@@ -931,6 +931,9 @@ abstract final class Pref {
   static bool get showFsScreenshotBtn =>
       _setting.get(SettingBoxKey.showFsScreenshotBtn, defaultValue: true);
 
+  static bool get showFsLandscapeBtn =>
+      _setting.get(SettingBoxKey.showFsLandscapeBtn, defaultValue: true);
+
   static bool get showFsLockBtn =>
       _setting.get(SettingBoxKey.showFsLockBtn, defaultValue: true);
 

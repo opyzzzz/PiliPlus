@@ -1880,6 +1880,43 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 ),
               ),
             ),
+
+          // 横屏模式切换
+          if (plPlayerController.showFsLandscapeBtn)
+            ViewSafeArea(
+              left: false,
+              right: !plPlayerController.removeSafeArea,
+              child: Obx(
+                () => Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionalTranslation(
+                    translation: const Offset(-1, -0.4),
+                    child: Transform.translate(
+                      offset: const Offset(0, 56),
+                      child: Offstage(
+                        offstage: !plPlayerController.showControls.value,
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            color: Color(0x45000000),
+                            borderRadius: BorderRadius.all(Radius.circular(8)),
+                          ),
+                          child: ComBtn(
+                            tooltip: '切换横屏方向（长按关闭）',
+                            icon: const Icon(
+                              Icons.screen_rotation_outlined,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                            onTap: plPlayerController.toggleLandscapeMode,
+                            onLongPress: plPlayerController.disableLandscapeMode,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
 
         Obx(() {
