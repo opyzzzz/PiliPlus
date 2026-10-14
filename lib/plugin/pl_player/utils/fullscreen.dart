@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/utils/landscape_controller.dart';
+import 'package:PiliPlus/features/landscape/landscape_feature.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
@@ -43,7 +43,7 @@ Future<void>? _setPreferredOrientations(List<DeviceOrientation> orientations) {
 
 List<DeviceOrientation> _resolveOrientations(
   List<DeviceOrientation> requested,
-) => LandscapeController.resolveOrientations(requested);
+) => LandscapeFeature.resolveOrientations(requested);
 
 Future<void>? portraitUpMode() {
   return _setPreferredOrientations(_resolveOrientations(const [.portraitUp]));
@@ -72,7 +72,7 @@ Future<void>? fullMode() {
 /// Applies the global landscape preference, or restores the original
 /// orientation policy when the preference is disabled.
 Future<void>? applyLandscapeMode() =>
-    LandscapeController.apply(_setPreferredOrientations);
+    LandscapeFeature.apply(_setPreferredOrientations);
 
 bool _showSystemBar = true;
 bool get showSystemBar_ => _showSystemBar;

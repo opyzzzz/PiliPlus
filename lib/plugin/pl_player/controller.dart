@@ -41,7 +41,7 @@ import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/landscape_controller.dart';
+import 'package:PiliPlus/features/landscape/landscape_feature.dart';
 import 'package:PiliPlus/utils/ios/pip_helper.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
@@ -1753,12 +1753,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   Future<void> toggleLandscapeMode() async {
-    await LandscapeController.toggle();
+    await LandscapeFeature.toggle();
     applyLandscapeMode();
   }
 
   Future<void> disableLandscapeMode() async {
-    await LandscapeController.disable();
+    await LandscapeFeature.disable();
     resetScreenRotation();
   }
 

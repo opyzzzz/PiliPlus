@@ -1,54 +1,29 @@
+import 'package:PiliPlus/features/landscape/landscape_feature.dart';
 import 'package:PiliPlus/models/common/landscape_mode.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart' show DeviceOrientation;
 
-typedef OrientationApplier =
-    Future<void>? Function(List<DeviceOrientation> orientations);
+/// Compatibility forwarding layer. New code should depend on
+/// [LandscapeFeature] directly.
+typedef OrientationApplier = LandscapeOrientationApplier;
 
-/// Single policy entry point for the global landscape preference.
-///
-/// Persistence and orientation resolution live here so settings and player
-/// controls cannot drift into separate implementations. The fullscreen
-/// utility remains responsible for applying orientations and deduplicating
-/// platform calls.
+@Deprecated('Use LandscapeFeature.setMode instead.')
 abstract final class LandscapeController {
+  @Deprecated('Use LandscapeFeature.setMode instead.')
   static Future<void> setMode(LandscapeMode mode) =>
-      GStorage.setting.put(SettingBoxKey.landscapeMode, mode.index);
+      LandscapeFeature.setMode(mode);
 
-  static Future<void> toggle() => setMode(
-    Pref.landscapeMode == LandscapeMode.landscape
-        ? LandscapeMode.reverseLandscape
-        : LandscapeMode.landscape,
-  );
+  @Deprecated('Use LandscapeFeature.toggle instead.')
+  static Future<void> toggle() => LandscapeFeature.toggle();
 
-  static Future<void> disable() => setMode(LandscapeMode.disabled);
+  @Deprecated('Use LandscapeFeature.disable instead.')
+  static Future<void> disable() => LandscapeFeature.disable();
 
+  @Deprecated('Use LandscapeFeature.resolveOrientations instead.')
   static List<DeviceOrientation> resolveOrientations(
     List<DeviceOrientation> requested,
-  ) => switch (Pref.landscapeMode) {
-    LandscapeMode.disabled => requested,
-    LandscapeMode.landscape => const [.landscapeLeft],
-    LandscapeMode.reverseLandscape => const [.landscapeRight],
-  };
+  ) => LandscapeFeature.resolveOrientations(requested);
 
-  /// Applies the global preference. When disabled, preserve the app's
-  /// configured default orientation policy (including tablet adaptation).
+  @Deprecated('Use LandscapeFeature.apply instead.')
   static Future<void>? apply(OrientationApplier applyOrientations) =>
-      switch (Pref.landscapeMode) {
-        LandscapeMode.disabled =>
-          Pref.horizontalScreen
-              ? applyOrientations(const [
-                  .portraitUp,
-                  .portraitDown,
-                  .landscapeLeft,
-                  .landscapeRight,
-                ])
-              : applyOrientations(const [.portraitUp]),
-        LandscapeMode.landscape =>
-          applyOrientations(const [.landscapeLeft]),
-        LandscapeMode.reverseLandscape =>
-          applyOrientations(const [.landscapeRight]),
-      };
+      LandscapeFeature.apply(applyOrientations);
 }
