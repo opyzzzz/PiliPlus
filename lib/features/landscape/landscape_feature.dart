@@ -63,6 +63,9 @@ abstract final class LandscapeFeature {
     },
   );
 
+  /// Whether the fullscreen player should display the landscape toggle.
+  static bool get showToggleButton => Pref.showFsLandscapeBtn;
+
   /// Creates the player setting for showing the landscape toggle.
   static SwitchModel buildShowToggleSetting() => const SwitchModel(
     title: '全屏显示横屏切换按钮',

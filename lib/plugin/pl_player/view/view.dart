@@ -1883,7 +1883,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             ),
 
           // 横屏模式切换
-          if (plPlayerController.showFsLandscapeBtn)
+          if (LandscapeFeature.showToggleButton)
             ViewSafeArea(
               left: false,
               right: !plPlayerController.removeSafeArea,
