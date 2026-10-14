@@ -34,6 +34,7 @@ import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
+import 'package:PiliPlus/utils/landscape_controller.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -79,7 +80,7 @@ List<SettingsModel> get styleSettings => [
     value: () => Pref.landscapeMode,
     items: LandscapeMode.values,
     onSelected: (value, setState) async {
-      await GStorage.setting.put(SettingBoxKey.landscapeMode, value.index);
+      await LandscapeController.setMode(value);
       applyLandscapeMode();
       setState();
     },

@@ -10,7 +10,6 @@ import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
-import 'package:PiliPlus/models/common/landscape_mode.dart';
 import 'package:PiliPlus/models/common/audio_normalization.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
@@ -42,6 +41,7 @@ import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
+import 'package:PiliPlus/utils/landscape_controller.dart';
 import 'package:PiliPlus/utils/ios/pip_helper.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
@@ -1753,19 +1753,13 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   Future<void> toggleLandscapeMode() async {
-    final nextMode = Pref.landscapeMode == LandscapeMode.landscape
-        ? LandscapeMode.reverseLandscape
-        : LandscapeMode.landscape;
-    await GStorage.setting.put(SettingBoxKey.landscapeMode, nextMode.index);
+    await LandscapeController.toggle();
     applyLandscapeMode();
   }
 
   Future<void> disableLandscapeMode() async {
-    await GStorage.setting.put(
-      SettingBoxKey.landscapeMode,
-      LandscapeMode.disabled.index,
-    );
-    applyLandscapeMode();
+    await LandscapeController.disable();
+    resetScreenRotation();
   }
 
   int _screenshotState = 0;
