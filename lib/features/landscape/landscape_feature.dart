@@ -49,7 +49,7 @@ abstract final class LandscapeFeature {
   );
 
   /// Creates the global landscape-mode setting row.
-  static PopupModel buildModeSetting({
+  static PopupModel<LandscapeMode> buildModeSetting({
     required void Function() applyMode,
   }) => PopupModel(
     title: '横屏模式',
