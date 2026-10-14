@@ -3,7 +3,6 @@ import 'dart:io' show Platform;
 
 import 'package:PiliPlus/utils/landscape_controller.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart'
     show SystemChrome, MethodChannel, SystemUiOverlay, DeviceOrientation;
 
