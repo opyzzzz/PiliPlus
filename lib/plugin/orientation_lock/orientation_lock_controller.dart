@@ -22,6 +22,7 @@ class OrientationLockController {
   StreamSubscription<BoxEvent>? _settingsSubscription;
   Future<void> _operationQueue = Future<void>.value();
   bool _disposed = false;
+  int _internalDisabledWrites = 0;
 
   bool get enabled =>
       GStorage.setting.get(SettingBoxKey.orientationLockEnabled, defaultValue: false) == true;
@@ -46,6 +47,7 @@ class OrientationLockController {
             SettingBoxKey.orientationLockMode,
             OrientationLockMode.system.wireValue,
           );
+          _internalDisabledWrites++;
           await GStorage.setting.put(SettingBoxKey.orientationLockEnabled, false);
           return;
         }
@@ -77,9 +79,13 @@ class OrientationLockController {
       return;
     }
 
-    // The settings page currently writes directly to Hive. Reconcile those
-    // external changes through the same serialized native-operation queue.
     if (event.key == SettingBoxKey.orientationLockEnabled && event.value == false) {
+      if (_internalDisabledWrites > 0) {
+        _internalDisabledWrites--;
+        return;
+      }
+      // Legacy settings widgets may still write directly to Hive. Reconcile
+      // those external changes through the serialized native-operation queue.
       unawaited(_enqueue(() async {
         await OrientationLockPlatform.release();
         await GStorage.setting.put(
