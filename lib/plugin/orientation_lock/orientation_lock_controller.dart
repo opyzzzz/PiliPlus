@@ -1,6 +1,7 @@
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 import 'orientation_lock_mode.dart';
 import 'orientation_lock_platform.dart';
@@ -9,8 +10,10 @@ import 'orientation_lock_platform.dart';
 ///
 /// All user-facing state changes enter here; this class serializes persistence
 /// and native platform transitions so UI widgets never manipulate the channel.
-class OrientationLockController {
-  OrientationLockController._();
+class OrientationLockController with WidgetsBindingObserver {
+  OrientationLockController._() {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   static final OrientationLockController instance = OrientationLockController._();
 
@@ -33,6 +36,21 @@ class OrientationLockController {
   }
 
   bool get suspended => _suspended;
+
+  /// Native overlays are released by Android when the activity backgrounds.
+  /// Reconcile from Hive when Flutter returns to the foreground; Hive remains
+  /// the only persistent source of the selected mode.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !shouldApply) return;
+    _enqueue(() async {
+      if (shouldApply) {
+        await OrientationLockPlatform.apply(selectedMode);
+      }
+    }).catchError((Object _) {
+      // Foreground reconciliation is best-effort; the user can reselect a mode.
+    });
+  }
 
   /// Whether the selected orientation should currently be applied.
   bool get shouldApply =>
