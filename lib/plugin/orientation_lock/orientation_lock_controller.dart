@@ -17,6 +17,8 @@ class OrientationLockController with WidgetsBindingObserver {
 
   static final OrientationLockController instance = OrientationLockController._();
 
+  static OrientationLockController initialize() => instance;
+
   Future<void> _operationQueue = Future<void>.value();
 
   bool _suspended = false;
@@ -115,8 +117,8 @@ class OrientationLockController with WidgetsBindingObserver {
       });
 
   /// Resumes a suspended lock only if it is still enabled and has a concrete
-  /// selected mode. Native lifecycle code may also restore on foregrounding;
-  /// platform requests are serialized to keep those transitions deterministic.
+  /// selected mode. Foreground reconciliation is handled from Hive by this
+  /// controller; platform requests remain serialized for deterministic state.
   Future<void> resume() => _enqueue(() async {
         if (!_suspended) return;
         _suspended = false;
