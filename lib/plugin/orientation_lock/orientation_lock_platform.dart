@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 import 'orientation_lock_mode.dart';
 import 'orientation_lock_protocol.dart';
@@ -21,8 +20,7 @@ abstract final class OrientationLockPlatform {
             OrientationLockProtocol.requestOverlayPermission,
           ) ??
           false;
-    } on PlatformException catch (e) {
-      SmartDialog.showToast(e.message ?? '无法请求悬浮窗权限');
+    } on PlatformException {
       return false;
     }
   }
