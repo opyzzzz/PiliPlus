@@ -5,6 +5,7 @@ import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
 
 abstract final class OrientationLockPlatform {
   static const _channel = MethodChannel(
@@ -59,9 +60,9 @@ class OrientationLockButton extends StatelessWidget {
       SettingBoxKey.orientationLockMode,
       defaultValue: 'default',
     );
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
+    await Get.dialog<void>(
+      Builder(
+        builder: (dialogContext) => AlertDialog(
         title: const Text('方向锁定'),
         content: layout == 0
             ? SingleChildScrollView(
@@ -88,6 +89,7 @@ class OrientationLockButton extends StatelessWidget {
                     ),
                 ],
               ),
+        ),
       ),
     );
   }

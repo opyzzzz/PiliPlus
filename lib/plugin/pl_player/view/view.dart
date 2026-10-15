@@ -1883,7 +1883,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               ),
             ),
 
-          // 方向锁定浮窗：沿用截图按钮的全屏/显示条件。
+          // 方向锁定按钮复用截图按钮的锚点，并固定下移 56dp：
+          // 40dp 按钮高度 + 16dp 间距，避免与截图按钮重叠。
           if (plPlayerController.showFsScreenshotBtn ||
               plPlayerController.showFsLockBtn)
             ViewSafeArea(
@@ -1894,8 +1895,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   alignment: Alignment.centerRight,
                   child: FractionalTranslation(
                     translation: const Offset(-1, -0.4),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 64),
+                    child: Transform.translate(
+                      offset: const Offset(0, 56),
                       child: OrientationLockButton(
                         showControls: plPlayerController.showControls.value,
                       ),
