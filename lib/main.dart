@@ -98,7 +98,7 @@ void main() async {
   await _initAppPath();
   try {
     await GStorage.init();
-    if (Platform.isAndroid) OrientationLockController.instance;
+    if (Platform.isAndroid) OrientationLockController.initialize();
   } catch (e) {
     await Utils.copyText(e.toString(), needToast: false);
     if (kDebugMode) debugPrint('GStorage init error: $e');
