@@ -120,18 +120,28 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
     );
     final theme = Theme.of(context);
     final horizontal = layout == 0;
+    const edgePadding = 8.0;
+    const menuGap = 8.0;
     final menuWidth = horizontal
-        ? (screenSize.width - 32).clamp(120.0, 300.0).toDouble()
+        ? (screenSize.width - edgePadding * 2)
+            .clamp(120.0, 296.0)
+            .toDouble()
         : 156.0;
     final menuHeight = horizontal ? 64.0 : 160.0;
-    final left = (anchorRect.right - menuWidth)
-        .clamp(16.0, (screenSize.width - menuWidth - 16).clamp(16.0, screenSize.width))
-        .toDouble();
-    final below = anchorRect.bottom + 8;
-    final top = below + menuHeight <= screenSize.height - 16
-        ? below
-        : (anchorRect.top - menuHeight - 8)
-            .clamp(16.0, (screenSize.height - menuHeight - 16).clamp(16.0, screenSize.height))
+
+    // Both layouts share the button as their anchor and expand to its left.
+    // Keep the menu on-screen on narrow devices, even if that requires
+    // reducing the available horizontal scrolling viewport.
+    final preferredLeft = anchorRect.left - menuWidth - menuGap;
+    final left = preferredLeft >= edgePadding
+        ? preferredLeft
+        : edgePadding;
+    final top = horizontal
+        ? (anchorRect.center.dy - menuHeight / 2)
+            .clamp(edgePadding, screenSize.height - menuHeight - edgePadding)
+            .toDouble()
+        : anchorRect.top
+            .clamp(edgePadding, screenSize.height - menuHeight - edgePadding)
             .toDouble();
 
     _menuEntry = OverlayEntry(
@@ -282,15 +292,25 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
         color: Color(0x45000000),
         borderRadius: BorderRadius.all(Radius.circular(8)),
       ),
-      child: IconButton(
-        tooltip: '方向锁定',
-        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-        padding: EdgeInsets.zero,
-        onPressed: _toggleMenu,
-        icon: const Icon(
-          Icons.screen_rotation_outlined,
-          size: 20,
-          color: Colors.white,
+      child: Tooltip(
+        message: '方向锁定',
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: _toggleMenu,
+              child: const Center(
+                child: Icon(
+                  Icons.screen_rotation_outlined,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

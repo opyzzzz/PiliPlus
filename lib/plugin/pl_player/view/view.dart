@@ -1883,8 +1883,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               ),
             ),
 
-          // 方向锁定按钮复用截图按钮的锚点，并固定下移 56dp：
-          // 40dp 按钮高度 + 16dp 间距，避免与截图按钮重叠。
+          // Keep the orientation button in the screenshot button's column.
+          // Both controls use the same 34dp footprint; place it 10dp below.
           if (plPlayerController.showFsScreenshotBtn ||
               plPlayerController.showFsLockBtn)
             ViewSafeArea(
@@ -1896,7 +1896,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   child: FractionalTranslation(
                     translation: const Offset(-1, -0.4),
                     child: Transform.translate(
-                      offset: const Offset(0, 56),
+                      offset: const Offset(0, 44),
                       child: OrientationLockButton(
                         showControls: plPlayerController.showControls.value,
                       ),
