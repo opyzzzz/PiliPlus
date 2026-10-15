@@ -35,8 +35,19 @@ class MainActivity : AudioServiceActivity() {
                     }
                     "setOrientation" -> {
                         val mode = call.argument<String>("mode") ?: "default"
-                        if (mode != "default" &&
-                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                        val service = Intent(this, OrientationLockService::class.java)
+                            .putExtra(OrientationLockService.EXTRA_MODE, mode)
+                        if (mode == "default") {
+                            OrientationLockService.clearResultCallback()
+                            stopService(service)
+                            result.success(true)
+                        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                            result.error(
+                                "unsupported_android_version",
+                                "悬浮方向锁定需要 Android 8.0 或更高版本",
+                                null
+                            )
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                             !Settings.canDrawOverlays(this)
                         ) {
                             startActivity(
@@ -51,18 +62,21 @@ class MainActivity : AudioServiceActivity() {
                                 null
                             )
                         } else {
-                            val service = Intent(this, OrientationLockService::class.java)
-                                .putExtra(OrientationLockService.EXTRA_MODE, mode)
-                            if (mode == "default") {
-                                stopService(service)
-                                result.success(true)
-                            } else {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    startForegroundService(service)
+                            OrientationLockService.setResultCallback { success, code, message ->
+                                if (success) {
+                                    result.success(true)
                                 } else {
-                                    startService(service)
+                                    result.error(code, message, null)
                                 }
-                                result.success(true)
+                            }
+                            try {
+                                startForegroundService(service)
+                            } catch (exception: RuntimeException) {
+                                OrientationLockService.notifyResult(
+                                    false,
+                                    "orientation_service",
+                                    exception.message ?: "启动方向锁定服务失败"
+                                )
                             }
                         }
                     }

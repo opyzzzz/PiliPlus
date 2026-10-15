@@ -20,6 +20,31 @@ public final class OrientationLockService extends Service {
     private static final String CHANNEL_ID = "orientation_lock";
     private static final int NOTIFICATION_ID = 7241;
 
+    public interface OrientationResultCallback {
+        void onResult(boolean success, String code, String message);
+    }
+
+    private static OrientationResultCallback pendingResultCallback;
+
+    public static synchronized void setResultCallback(OrientationResultCallback callback) {
+        pendingResultCallback = callback;
+    }
+
+    public static synchronized void clearResultCallback() {
+        pendingResultCallback = null;
+    }
+
+    public static void notifyResult(boolean success, String code, String message) {
+        final OrientationResultCallback callback;
+        synchronized (OrientationLockService.class) {
+            callback = pendingResultCallback;
+            pendingResultCallback = null;
+        }
+        if (callback != null) {
+            callback.onResult(success, code, message);
+        }
+    }
+
     private WindowManager windowManager;
     private Space holderView;
     private WindowManager.LayoutParams layoutParams;
@@ -35,6 +60,7 @@ public final class OrientationLockService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null) {
+            notifyResult(false, "orientation_service", "方向锁定服务未收到模式");
             stopSelf(startId);
             return START_NOT_STICKY;
         }
@@ -43,6 +69,15 @@ public final class OrientationLockService extends Service {
         final int orientation = toScreenOrientation(mode);
         if (orientation == ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
             removeOrientationLayout();
+            notifyResult(true, null, null);
+            stopSelf(startId);
+            return START_NOT_STICKY;
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            removeOrientationLayout();
+            notifyResult(false, "unsupported_android_version",
+                    "悬浮方向锁定需要 Android 8.0 或更高版本");
             stopSelf(startId);
             return START_NOT_STICKY;
         }
@@ -50,11 +85,17 @@ public final class OrientationLockService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                 !Settings.canDrawOverlays(this)) {
             removeOrientationLayout();
+            notifyResult(false, "overlay_permission", "悬浮窗权限已关闭，请重新授权");
             stopSelf(startId);
             return START_NOT_STICKY;
         }
 
-        setSystemOrientation(orientation);
+        if (setSystemOrientation(orientation)) {
+            notifyResult(true, null, null);
+        } else {
+            notifyResult(false, "orientation_apply_failed", "系统未能应用所选屏幕方向");
+            stopSelf(startId);
+        }
         return START_NOT_STICKY;
     }
 
@@ -71,7 +112,7 @@ public final class OrientationLockService extends Service {
         return ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
     }
 
-    private void setSystemOrientation(int orientation) {
+    private boolean setSystemOrientation(int orientation) {
         if (holderView == null) {
             final int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -91,19 +132,19 @@ public final class OrientationLockService extends Service {
             } catch (RuntimeException exception) {
                 holderView = null;
                 layoutParams = null;
-                stopSelf();
-                return;
+                holderView = null;
+                layoutParams = null;
+                return false;
             }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            layoutParams.screenOrientation = orientation;
-            try {
-                windowManager.updateViewLayout(holderView, layoutParams);
-            } catch (RuntimeException exception) {
-                removeOrientationLayout();
-                stopSelf();
-            }
+        layoutParams.screenOrientation = orientation;
+        try {
+            windowManager.updateViewLayout(holderView, layoutParams);
+            return true;
+        } catch (RuntimeException exception) {
+            removeOrientationLayout();
+            return false;
         }
     }
 

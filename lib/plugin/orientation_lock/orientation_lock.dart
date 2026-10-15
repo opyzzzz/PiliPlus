@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliPlus/utils/storage.dart';
@@ -12,6 +13,8 @@ abstract final class OrientationLockPlatform {
     'com.example.piliplus/orientation_lock',
   );
 
+  static Future<void> _orientationQueue = Future<void>.value();
+
   static Future<void> requestPermission() async {
     if (!Platform.isAndroid) return;
     try {
@@ -21,12 +24,19 @@ abstract final class OrientationLockPlatform {
     }
   }
 
-  static Future<void> setOrientation(String mode) async {
-    if (!Platform.isAndroid) return;
-    await _channel.invokeMethod<bool>(
-      'setOrientation',
-      <String, Object>{'mode': mode},
-    );
+  static Future<void> setOrientation(String mode) {
+    if (!Platform.isAndroid) return Future<void>.value();
+
+    // Keep native service requests in order; a fast second tap must not
+    // overwrite the result callback for the previous request.
+    final request = _orientationQueue.catchError((_) {}).then((_) async {
+      await _channel.invokeMethod<bool>(
+        'setOrientation',
+        <String, Object>{'mode': mode},
+      );
+    });
+    _orientationQueue = request;
+    return request;
   }
 
   static Future<void> release() async {
