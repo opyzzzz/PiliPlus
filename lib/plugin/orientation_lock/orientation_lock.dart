@@ -129,10 +129,12 @@ class OrientationLockButton extends StatelessWidget {
               enabled: false,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               height: 48,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final mode in _modes)
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final mode in _modes)
                     InkWell(
                       onTap: () => Navigator.of(menuContext).pop(mode.value),
                       borderRadius: BorderRadius.circular(6),
@@ -165,7 +167,8 @@ class OrientationLockButton extends StatelessWidget {
                         ),
                       ),
                     ),
-                ],
+                  ],
+                ),
               ),
             ),
           ];
@@ -192,33 +195,4 @@ class OrientationLockButton extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (!Platform.isAndroid ||
-        !showControls ||
-        !GStorage.setting.get(
-          SettingBoxKey.orientationLockEnabled,
-          defaultValue: false,
-        )) {
-      return const SizedBox.shrink();
-    }
-
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0x45000000),
-        borderRadius: BorderRadius.all(Radius.circular(8)),
-      ),
-      child: IconButton(
-        tooltip: '方向锁定',
-        constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-        padding: EdgeInsets.zero,
-        onPressed: () => _selectMode(context),
-        icon: const Icon(
-          Icons.screen_rotation_outlined,
-          size: 20,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
 }
