@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
@@ -10,6 +11,7 @@ import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliPlus/plugin/orientation_lock/orientation_lock.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/desktop/window_controller.dart';
@@ -72,6 +74,64 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.showFsScreenshotBtn,
     defaultVal: true,
   ),
+
+  if (Platform.isAndroid)
+    SwitchModel(
+      title: '浮窗方向锁定',
+      subtitle: '使用 Android 原生方向锁定；开启后可在全屏播放器中选择方向',
+      leading: const Icon(Icons.screen_rotation_outlined),
+      setKey: SettingBoxKey.orientationLockEnabled,
+      defaultVal: false,
+      onChanged: (value) {
+        if (value) {
+          unawaited(OrientationLockPlatform.requestPermission());
+        } else {
+          unawaited(OrientationLockPlatform.release());
+        }
+      },
+    ),
+  if (Platform.isAndroid)
+    NormalModel(
+      title: '方向锁定菜单布局',
+      subtitle: '当前：${GStorage.setting.get(SettingBoxKey.orientationLockMenuLayout, defaultValue: 0) == 0 ? '横向展开' : '矩形展开'}',
+      leading: const Icon(Icons.dashboard_customize_outlined),
+      onTap: (context, setState) async {
+        final value = GStorage.setting.get(
+          SettingBoxKey.orientationLockMenuLayout,
+          defaultValue: 0,
+        );
+        final selected = await showDialog<int>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('方向锁定菜单布局'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<int>(
+                  value: 0,
+                  groupValue: value,
+                  title: const Text('横向展开'),
+                  onChanged: (v) => Navigator.pop(context, v),
+                ),
+                RadioListTile<int>(
+                  value: 1,
+                  groupValue: value,
+                  title: const Text('矩形展开'),
+                  onChanged: (v) => Navigator.pop(context, v),
+                ),
+              ],
+            ),
+          ),
+        );
+        if (selected != null) {
+          await GStorage.setting.put(
+            SettingBoxKey.orientationLockMenuLayout,
+            selected,
+          );
+          setState();
+        }
+      },
+    ),
   SwitchModel(
     title: '全屏显示电池电量',
     leading: const Icon(Icons.battery_3_bar),

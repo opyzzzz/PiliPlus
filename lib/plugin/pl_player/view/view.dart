@@ -36,6 +36,7 @@ import 'package:PiliPlus/pages/video/post_panel/popup_menu_text.dart';
 import 'package:PiliPlus/pages/video/post_panel/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/orientation_lock/orientation_lock.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_control_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/double_tap_type.dart';
@@ -1875,6 +1876,28 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                               : null,
                           onTap: plPlayerController.takeScreenshot,
                         ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // 方向锁定浮窗：沿用截图按钮的全屏/显示条件。
+          if (plPlayerController.showFsScreenshotBtn ||
+              plPlayerController.showFsLockBtn)
+            ViewSafeArea(
+              left: false,
+              right: !plPlayerController.removeSafeArea,
+              child: Obx(
+                () => Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionalTranslation(
+                    translation: const Offset(-1, -0.4),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 64),
+                      child: OrientationLockButton(
+                        showControls: plPlayerController.showControls.value,
                       ),
                     ),
                   ),
