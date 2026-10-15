@@ -48,8 +48,16 @@ class OrientationLockController {
           return;
         }
 
-        await OrientationLockPlatform.requestPermission();
-        await GStorage.setting.put(SettingBoxKey.orientationLockEnabled, true);
+        final granted = await OrientationLockPlatform.requestPermission();
+        if (!granted) {
+          // Permission settings may have been opened, but the user has not
+          // granted access yet. Keep the persisted switch disabled.
+          throw PlatformException(
+            code: 'overlay_permission_denied',
+            message: '请授予悬浮窗权限后再启用方向锁定',
+          );
+        }
+        await _writeEnabled(true);
       });
 
   /// Applies a user-selected mode through the one business entry point.
