@@ -127,8 +127,8 @@ class MainActivity : AudioServiceActivity() {
         AndroidHelper.isPipMode = isInPictureInPictureMode
 
         if (isInPictureInPictureMode) {
-            // PiP is a temporary suspension, not a user-requested disable:
-            // release the native overlay without clearing the saved mode.
+            // PiP is a temporary suspension, not a user-requested disable.
+            // Release only the native runtime overlay; Hive keeps the selection.
             releaseAppliedOrientation()
         }
     }
