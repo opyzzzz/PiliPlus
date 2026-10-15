@@ -7,6 +7,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
+enum OrientationLockMode {
+  system('default', '默认', Icons.screen_rotation_outlined),
+  portrait('portrait', '竖屏', Icons.stay_current_portrait),
+  landscape('landscape', '横屏', Icons.stay_current_landscape),
+  reverseLandscape('reverseLandscape', '反向横屏', Icons.screen_rotation);
+
+  const OrientationLockMode(this.wireValue, this.label, this.icon);
+
+  final String wireValue;
+  final String label;
+  final IconData icon;
+
+  static const valuesForMenu = <OrientationLockMode>[
+    system, portrait, landscape, reverseLandscape,
+  ];
+}
+
 abstract final class OrientationLockPlatform {
   static const _channel = MethodChannel(
     'com.example.piliplus/orientation_lock',
@@ -23,7 +40,9 @@ abstract final class OrientationLockPlatform {
     }
   }
 
-  static Future<void> setOrientation(String mode) {
+  static Future<void> apply(OrientationLockMode mode) => _setMode(mode);
+
+  static Future<void> _setMode(OrientationLockMode mode) {
     if (!Platform.isAndroid) return Future<void>.value();
 
     // Keep native service requests in order; a fast second tap must not
@@ -31,7 +50,7 @@ abstract final class OrientationLockPlatform {
     final request = _orientationQueue.catchError((_) {}).then((_) async {
       await _channel.invokeMethod<bool>(
         'setOrientation',
-        <String, Object>{'mode': mode},
+        <String, Object>{'mode': mode.wireValue},
       );
     });
     _orientationQueue = request;
@@ -42,7 +61,7 @@ abstract final class OrientationLockPlatform {
     if (!Platform.isAndroid) return;
     // Let the caller handle failures. A failed release must not be persisted
     // as though the feature had returned to its default state.
-    await setOrientation('default');
+    await _setMode(OrientationLockMode.system);
   }
 }
 
@@ -56,29 +75,24 @@ class OrientationLockButton extends StatefulWidget {
 }
 
 class _OrientationLockButtonState extends State<OrientationLockButton> {
-  static const _modes = <({String value, String label, IconData icon})>[
-    (value: 'default', label: '默认', icon: Icons.screen_rotation_outlined),
-    (value: 'portrait', label: '竖屏', icon: Icons.stay_current_portrait),
-    (value: 'landscape', label: '横屏', icon: Icons.stay_current_landscape),
-    (value: 'reverseLandscape', label: '反向横屏', icon: Icons.screen_rotation),
-  ];
+  static const _modes = OrientationLockMode.valuesForMenu;
 
   OverlayEntry? _menuEntry;
 
-  Future<void> _applyMode(String mode) async {
+  Future<void> _applyMode(OrientationLockMode mode) async {
     try {
-      if (mode == 'default') {
+      if (mode == OrientationLockMode.system) {
         await OrientationLockPlatform.release();
       } else {
-        await OrientationLockPlatform.setOrientation(mode);
+        await OrientationLockPlatform.apply(mode);
       }
 
       // This value represents the user's explicit selection only. Never infer
       // it from the device's current orientation or the player's rotation.
-      await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode);
-      if (mounted && mode != 'default') {
+      await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode.wireValue);
+      if (mounted && mode != OrientationLockMode.system) {
         SmartDialog.showToast(
-          '已请求${_modes.firstWhere((item) => item.value == mode).label}方向',
+          '已请求${mode.label}方向',
         );
       }
     } on PlatformException catch (e) {
@@ -206,16 +220,16 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
   }
 
   Widget _buildHorizontalItem(
-    ({String value, String label, IconData icon}) mode,
+    OrientationLockMode mode,
     String selectedMode,
     ColorScheme colorScheme,
     double itemWidth,
   ) {
-    final selected = mode.value == selectedMode;
+    final selected = mode.wireValue == selectedMode;
     return InkWell(
       onTap: () {
         _closeMenu();
-        _applyMode(mode.value);
+        _applyMode(mode);
       },
       child: SizedBox(
         width: itemWidth,
@@ -240,15 +254,15 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
   }
 
   Widget _buildVerticalItem(
-    ({String value, String label, IconData icon}) mode,
+    OrientationLockMode mode,
     String selectedMode,
     ColorScheme colorScheme,
   ) {
-    final selected = mode.value == selectedMode;
+    final selected = mode.wireValue == selectedMode;
     return InkWell(
       onTap: () {
         _closeMenu();
-        _applyMode(mode.value);
+        _applyMode(mode);
       },
       child: SizedBox(
         height: 40,

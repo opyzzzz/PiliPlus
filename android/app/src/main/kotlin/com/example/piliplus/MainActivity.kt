@@ -13,6 +13,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
+    // Android keeps a small lifecycle mirror because native onStart/onStop must
+    // restore/release the overlay even when the player UI is not mounted.
     companion object {
         private const val KEY_SELECTED_ORIENTATION = "selected_mode"
     }
