@@ -48,25 +48,17 @@ abstract final class OrientationLockPlatform {
   }
 }
 
-class OrientationLockButton extends StatefulWidget {
+class OrientationLockButton extends StatelessWidget {
   const OrientationLockButton({required this.showControls, super.key});
 
   final bool showControls;
 
-  @override
-  State<OrientationLockButton> createState() => _OrientationLockButtonState();
-}
-
-class _OrientationLockButtonState extends State<OrientationLockButton> {
   static const _modes = <({String value, String label, IconData icon})>[
     (value: 'default', label: '默认', icon: Icons.screen_rotation_outlined),
     (value: 'portrait', label: '竖屏', icon: Icons.stay_current_portrait),
     (value: 'landscape', label: '横屏', icon: Icons.stay_current_landscape),
     (value: 'reverseLandscape', label: '反向横屏', icon: Icons.screen_rotation),
   ];
-
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _menuEntry;
 
   Future<void> _applyMode(String mode) async {
     try {
@@ -79,202 +71,111 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
     }
   }
 
-  void _closeMenu() {
-    final entry = _menuEntry;
-    if (entry == null) return;
-    _menuEntry = null;
-    entry.remove();
-    entry.dispose();
-  }
-
-  void _toggleMenu() {
-    if (_menuEntry != null) {
-      _closeMenu();
-      return;
-    }
-
-    final layout = GStorage.setting.get(
-      SettingBoxKey.orientationLockMenuLayout,
-      defaultValue: 0,
-    );
-    final selectedMode = GStorage.setting.get(
-      SettingBoxKey.orientationLockMode,
-      defaultValue: 'default',
-    );
-    final colorScheme = Theme.of(context).colorScheme;
-    final overlay = Overlay.of(context, rootOverlay: true);
-
-    _menuEntry = OverlayEntry(
-      builder: (overlayContext) => Stack(
+  PopupMenuItem<String> _buildModeItem(
+    ({String value, String label, IconData icon}) mode,
+    String selectedMode,
+    ColorScheme colorScheme,
+  ) {
+    final selected = mode.value == selectedMode;
+    return PopupMenuItem<String>(
+      value: mode.value,
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _closeMenu,
-              child: const SizedBox.expand(),
-            ),
-          ),
-          CompositedTransformFollower(
-            link: _layerLink,
-            showWhenUnlinked: false,
-            targetAnchor: Alignment.bottomRight,
-            followerAnchor: Alignment.topRight,
-            offset: const Offset(0, 8),
-            child: Material(
-              color: Colors.black.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(8),
-              clipBehavior: Clip.antiAlias,
-              child: layout == 0
-                  ? ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 300),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (final mode in _modes)
-                              _buildHorizontalItem(
-                                mode,
-                                selectedMode,
-                                colorScheme,
-                              ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : SizedBox(
-                      width: 156,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (final mode in _modes)
-                            _buildVerticalItem(
-                              mode,
-                              selectedMode,
-                              colorScheme,
-                            ),
-                        ],
-                      ),
-                    ),
-            ),
-          ),
+          Icon(mode.icon, size: 18,
+            color: selected ? colorScheme.secondary : Colors.white),
+          const SizedBox(width: 10),
+          Text(mode.label, style: TextStyle(fontSize: 13,
+            color: selected ? colorScheme.secondary : Colors.white)),
+          if (selected) ...[
+            const SizedBox(width: 12),
+            Icon(Icons.check, size: 16, color: colorScheme.secondary),
+          ],
         ],
       ),
     );
-
-    overlay.insert(_menuEntry!);
-  }
-
-  Widget _buildHorizontalItem(
-    ({String value, String label, IconData icon}) mode,
-    String selectedMode,
-    ColorScheme colorScheme,
-  ) {
-    final selected = mode.value == selectedMode;
-    return InkWell(
-      onTap: () {
-        _closeMenu();
-        _applyMode(mode.value);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              mode.icon,
-              size: 18,
-              color: selected ? colorScheme.secondary : Colors.white,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              mode.label,
-              style: TextStyle(
-                fontSize: 12,
-                color: selected ? colorScheme.secondary : Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVerticalItem(
-    ({String value, String label, IconData icon}) mode,
-    String selectedMode,
-    ColorScheme colorScheme,
-  ) {
-    final selected = mode.value == selectedMode;
-    return InkWell(
-      onTap: () {
-        _closeMenu();
-        _applyMode(mode.value);
-      },
-      child: SizedBox(
-        height: 40,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              Icon(
-                mode.icon,
-                size: 18,
-                color: selected ? colorScheme.secondary : Colors.white,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  mode.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: selected ? colorScheme.secondary : Colors.white,
-                  ),
-                ),
-              ),
-              if (selected)
-                Icon(Icons.check, size: 16, color: colorScheme.secondary),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _closeMenu();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isAndroid ||
-        !widget.showControls ||
-        !GStorage.setting.get(
-          SettingBoxKey.orientationLockEnabled,
-          defaultValue: false,
-        )) {
+    if (!Platform.isAndroid || !showControls ||
+        !GStorage.setting.get(SettingBoxKey.orientationLockEnabled,
+            defaultValue: false)) {
       return const SizedBox.shrink();
     }
 
-    return CompositedTransformTarget(
-      link: _layerLink,
+    final layout = GStorage.setting.get(
+      SettingBoxKey.orientationLockMenuLayout, defaultValue: 0);
+    final selectedMode = GStorage.setting.get(
+      SettingBoxKey.orientationLockMode, defaultValue: 'default');
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return PopupMenuButton<String>(
+      tooltip: '方向锁定',
+      requestFocus: false,
+      initialValue: selectedMode,
+      color: Colors.black.withValues(alpha: 0.8),
+      onSelected: _applyMode,
+      itemBuilder: (menuContext) {
+        if (layout == 0) {
+          final availableWidth = MediaQuery.sizeOf(menuContext).width - 32;
+          return [
+            PopupMenuItem<String>(
+              enabled: false,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              height: 58,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: availableWidth.clamp(120.0, 360.0),
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final mode in _modes)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(6),
+                          onTap: () => Navigator.of(menuContext).pop(mode.value),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 8),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(mode.icon, size: 18,
+                                  color: mode.value == selectedMode
+                                      ? colorScheme.secondary : Colors.white),
+                                const SizedBox(height: 4),
+                                Text(mode.label, style: TextStyle(fontSize: 12,
+                                  color: mode.value == selectedMode
+                                      ? colorScheme.secondary : Colors.white)),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ];
+        }
+        return _modes.map(
+          (mode) => _buildModeItem(mode, selectedMode, colorScheme),
+        ).toList();
+      },
       child: DecoratedBox(
         decoration: const BoxDecoration(
           color: Color(0x45000000),
           borderRadius: BorderRadius.all(Radius.circular(8)),
         ),
-        child: IconButton(
-          tooltip: '方向锁定',
-          constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-          padding: EdgeInsets.zero,
-          onPressed: _toggleMenu,
-          icon: const Icon(
-            Icons.screen_rotation_outlined,
-            size: 20,
-            color: Colors.white,
-          ),
+        child: const SizedBox(
+          width: 40, height: 40,
+          child: Icon(Icons.screen_rotation_outlined,
+            size: 20, color: Colors.white),
         ),
       ),
     );
