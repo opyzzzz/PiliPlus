@@ -40,11 +40,9 @@ abstract final class OrientationLockPlatform {
 
   static Future<void> release() async {
     if (!Platform.isAndroid) return;
-    try {
-      await setOrientation('default');
-    } on PlatformException catch (e) {
-      SmartDialog.showToast(e.message ?? '释放方向锁定失败');
-    }
+    // Let the caller handle failures. A failed release must not be persisted
+    // as though the feature had returned to its default state.
+    await setOrientation('default');
   }
 }
 
@@ -69,10 +67,19 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
 
   Future<void> _applyMode(String mode) async {
     try {
-      await OrientationLockPlatform.setOrientation(mode);
+      if (mode == 'default') {
+        await OrientationLockPlatform.release();
+      } else {
+        await OrientationLockPlatform.setOrientation(mode);
+      }
+
+      // This value represents the user's explicit selection only. Never infer
+      // it from the device's current orientation or the player's rotation.
       await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode);
       if (mounted && mode != 'default') {
-        SmartDialog.showToast('已请求${_modes.firstWhere((item) => item.value == mode).label}方向');
+        SmartDialog.showToast(
+          '已请求${_modes.firstWhere((item) => item.value == mode).label}方向',
+        );
       }
     } on PlatformException catch (e) {
       SmartDialog.showToast(e.message ?? '方向锁定失败');
@@ -172,7 +179,12 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               for (final mode in _modes)
-                                _buildHorizontalItem(mode, selectedMode, theme.colorScheme),
+                                _buildHorizontalItem(
+                                  mode,
+                                  selectedMode,
+                                  theme.colorScheme,
+                                  menuWidth / _modes.length,
+                                ),
                             ],
                           ),
                         )
@@ -197,6 +209,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
     ({String value, String label, IconData icon}) mode,
     String selectedMode,
     ColorScheme colorScheme,
+    double itemWidth,
   ) {
     final selected = mode.value == selectedMode;
     return InkWell(
@@ -205,12 +218,13 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
         _applyMode(mode.value);
       },
       child: SizedBox(
-        width: 74,
+        width: itemWidth,
         height: 64,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Icon(mode.icon, size: 18,
                 color: selected ? colorScheme.secondary : Colors.white),
