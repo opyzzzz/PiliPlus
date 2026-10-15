@@ -11,6 +11,7 @@ class SetSwitchItem extends StatefulWidget {
   final String setKey;
   final bool defaultVal;
   final ValueChanged<bool>? onChanged;
+  final Future<void> Function(bool value)? onToggle;
   final bool needReboot;
   final Widget? leading;
   final void Function(BuildContext context)? onTap;
@@ -25,6 +26,7 @@ class SetSwitchItem extends StatefulWidget {
     required this.setKey,
     this.defaultVal = false,
     this.onChanged,
+    this.onToggle,
     this.needReboot = false,
     this.leading,
     this.onTap,
@@ -70,7 +72,17 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
       if (!val) return;
     }
 
-    await GStorage.setting.put(widget.setKey, val);
+    if (widget.onToggle != null) {
+      try {
+        await widget.onToggle!(val);
+      } catch (_) {
+        _setVal();
+        if (mounted) setState(() {});
+        return;
+      }
+    } else {
+      await GStorage.setting.put(widget.setKey, val);
+    }
 
     widget.onChanged?.call(val);
     if (widget.needReboot) SmartDialog.showToast('重启生效');
