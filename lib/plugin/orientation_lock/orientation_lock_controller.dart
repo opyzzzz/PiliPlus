@@ -89,7 +89,12 @@ class OrientationLockController {
   Future<void> suspend() => _enqueue(() async {
         if (_suspended) return;
         _suspended = true;
-        await OrientationLockPlatform.release();
+        try {
+          await OrientationLockPlatform.release();
+        } catch (_) {
+          _suspended = false;
+          rethrow;
+        }
       });
 
   /// Resumes a suspended lock only if it is still enabled and has a concrete
@@ -99,7 +104,12 @@ class OrientationLockController {
         if (!_suspended) return;
         _suspended = false;
         if (shouldApply) {
-          await OrientationLockPlatform.apply(selectedMode);
+          try {
+            await OrientationLockPlatform.apply(selectedMode);
+          } catch (_) {
+            _suspended = true;
+            rethrow;
+          }
         }
       });
 
