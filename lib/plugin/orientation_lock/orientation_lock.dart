@@ -60,7 +60,7 @@ class OrientationLockButton extends StatelessWidget {
     (value: 'reverseLandscape', label: '反向横屏', icon: Icons.screen_rotation),
   ];
 
-  Future<void> _selectMode(BuildContext context) async {
+  void _selectMode(BuildContext context) {
     final layout = GStorage.setting.get(
       SettingBoxKey.orientationLockMenuLayout,
       defaultValue: 0,
@@ -69,53 +69,82 @@ class OrientationLockButton extends StatelessWidget {
       SettingBoxKey.orientationLockMode,
       defaultValue: 'default',
     );
-    final navigatorContext = Navigator.of(
-      context,
-      rootNavigator: true,
-    ).context;
+    final overlay = Overlay.of(context, rootOverlay: true);
+    late final OverlayEntry entry;
 
-    await showDialog<void>(
-      context: navigatorContext,
-      useRootNavigator: true,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('方向锁定'),
-        content: layout == 0
-            ? SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final mode in _modes)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _modeButton(dialogContext, mode, selectedMode),
-                      ),
-                  ],
+    void closeMenu() {
+      if (entry.mounted) {
+        entry.remove();
+      }
+    }
+
+    entry = OverlayEntry(
+      builder: (overlayContext) => Material(
+        color: Colors.black54,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: closeMenu,
+          child: SafeArea(
+            child: Center(
+              child: GestureDetector(
+                onTap: () {},
+                child: AlertDialog(
+                  title: const Text('方向锁定'),
+                  content: layout == 0
+                      ? SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final mode in _modes)
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: _modeButton(
+                                    overlayContext,
+                                    mode,
+                                    selectedMode,
+                                    closeMenu,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        )
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final mode in _modes)
+                              SizedBox(
+                                width: 124,
+                                child: _modeButton(
+                                  overlayContext,
+                                  mode,
+                                  selectedMode,
+                                  closeMenu,
+                                ),
+                              ),
+                          ],
+                        ),
                 ),
-              )
-            : Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final mode in _modes)
-                    SizedBox(
-                      width: 124,
-                      child: _modeButton(dialogContext, mode, selectedMode),
-                    ),
-                ],
               ),
+            ),
+          ),
+        ),
       ),
     );
+
+    overlay.insert(entry);
   }
 
   Widget _modeButton(
     BuildContext dialogContext,
     ({String value, String label, IconData icon}) mode,
     String selectedMode,
+    VoidCallback closeMenu,
   ) {
     return OutlinedButton.icon(
       onPressed: () async {
-        Navigator.of(dialogContext).pop();
+        closeMenu();
         try {
           await OrientationLockPlatform.setOrientation(mode.value);
           await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode.value);
