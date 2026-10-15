@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliPlus/utils/storage.dart';
@@ -23,6 +24,46 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
   static const _modes = OrientationLockMode.valuesForMenu;
 
   OverlayEntry? _menuEntry;
+  StreamSubscription<BoxEvent>? _settingsSubscription;
+  late bool _enabled;
+  late String _selectedMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _readSettings();
+    _settingsSubscription = GStorage.setting.watch().listen((event) {
+      if (event.key != SettingBoxKey.orientationLockEnabled &&
+          event.key != SettingBoxKey.orientationLockMode) {
+        return;
+      }
+      if (!mounted) return;
+      final previousEnabled = _enabled;
+      final previousMode = _selectedMode;
+      _readSettings();
+      if (previousEnabled != _enabled || previousMode != _selectedMode) {
+        setState(() {});
+      }
+      if (!_enabled || !widget.showControls) {
+        _closeMenu();
+      } else {
+        _menuEntry?.markNeedsBuild();
+      }
+    });
+  }
+
+  void _readSettings() {
+    _enabled = GStorage.setting.get(
+          SettingBoxKey.orientationLockEnabled,
+          defaultValue: false,
+        ) ==
+        true;
+    final mode = GStorage.setting.get(
+      SettingBoxKey.orientationLockMode,
+      defaultValue: 'default',
+    );
+    _selectedMode = mode is String ? mode : 'default';
+  }
 
   Future<void> _applyMode(OrientationLockMode mode) async {
     try {
@@ -234,29 +275,21 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
   @override
   void didUpdateWidget(covariant OrientationLockButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.showControls ||
-        !GStorage.setting.get(
-          SettingBoxKey.orientationLockEnabled,
-          defaultValue: false,
-        )) {
+    if (!widget.showControls || !_enabled) {
       _closeMenu();
     }
   }
 
   @override
   void dispose() {
+    _settingsSubscription?.cancel();
     _closeMenu();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isAndroid ||
-        !widget.showControls ||
-        !GStorage.setting.get(
-          SettingBoxKey.orientationLockEnabled,
-          defaultValue: false,
-        )) {
+    if (!Platform.isAndroid || !widget.showControls || !_enabled) {
       return const SizedBox.shrink();
     }
 
