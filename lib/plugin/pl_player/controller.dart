@@ -41,6 +41,7 @@ import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/size_ext.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
+import 'package:PiliPlus/features/landscape/landscape_feature.dart';
 import 'package:PiliPlus/utils/ios/pip_helper.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
@@ -583,12 +584,29 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   bool visible = true;
 
   DeviceOrientation? _orientation;
-  late final checkIsAutoRotate = Platform.isAndroid && mode != .gravity;
+  bool get checkIsAutoRotate => Platform.isAndroid && mode != .gravity;
   StreamSubscription<OrientationParams>? _orientationListener;
 
   void _stopOrientationListener() {
     _orientationListener?.cancel();
     _orientationListener = null;
+  }
+
+  void _startOrientationListener() {
+    if (!PlatformUtils.isMobile) return;
+    _orientationListener = NativeDeviceOrientationPlatform.instance
+        .onOrientationChanged(
+          checkIsAutoRotate: checkIsAutoRotate,
+          angleDegrees: Platform.isAndroid ? Pref.angleDegrees : null,
+        )
+        .listen(_onOrientationChanged);
+  }
+
+  static void refreshOrientationListenerIfExists() {
+    final instance = _instance;
+    if (instance == null || !PlatformUtils.isMobile) return;
+    instance._stopOrientationListener();
+    instance._startOrientationListener();
   }
 
   void _onOrientationChanged(OrientationParams param) {
@@ -635,14 +653,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   // 添加一个私有构造函数
   PlPlayerController._() {
-    if (PlatformUtils.isMobile) {
-      _orientationListener = NativeDeviceOrientationPlatform.instance
-          .onOrientationChanged(
-            checkIsAutoRotate: checkIsAutoRotate,
-            angleDegrees: Platform.isAndroid ? Pref.angleDegrees : null,
-          )
-          .listen(_onOrientationChanged);
-    }
+    _startOrientationListener();
 
     if (!Accounts.heartbeat.isLogin || Pref.historyPause) {
       enableHeart = false;
@@ -1452,9 +1463,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   double screenRatio = 0.0;
   bool isManualFS = true;
-  late final FullScreenMode mode = Pref.fullScreenMode;
-  late final horizontalScreen = Pref.horizontalScreen;
-  late final removeSafeArea = Pref.removeSafeArea;
+  FullScreenMode get mode => Pref.fullScreenMode;
+  bool get horizontalScreen => Pref.horizontalScreen;
+  bool get removeSafeArea => Pref.removeSafeArea;
 
   Future<void>? changeOrientation({
     required bool isVertical,
@@ -1504,7 +1515,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     try {
       if (status) {
         if (PlatformUtils.isMobile) {
-          hideSystemBar();
+          await hideSystemBar();
           await changeOrientation(
             isVertical: isVertical,
             orientation: orientation,
@@ -1515,7 +1526,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       } else {
         if (PlatformUtils.isMobile) {
           if (!removeSafeArea) {
-            showSystemBar();
+            await showSystemBar();
           }
           if (orientation == null && mode == .none) {
             return;
@@ -1749,6 +1760,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Future<void> getVideoShot() async {
     videoShot = await VideoHttp.videoshot(bvid: bvid, cid: cid!);
   }
+
+  Future<void> toggleLandscapeMode() =>
+      LandscapeFeature.toggleAndApply(applyLandscapeMode);
+
+  Future<void> disableLandscapeMode() =>
+      LandscapeFeature.disableAndApply(applyLandscapeMode);
 
   int _screenshotState = 0;
   Future<void> takeScreenshot() async {
