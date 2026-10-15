@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/services.dart';
@@ -9,9 +7,8 @@ import 'orientation_lock_platform.dart';
 
 /// The single business entry point for orientation-lock state transitions.
 ///
-/// Settings can still be changed by legacy widgets. The Hive listener routes
-/// those external changes back through this controller and its serialized
-/// operation queue.
+/// All user-facing state changes enter here; this class serializes persistence
+/// and native platform transitions so UI widgets never manipulate the channel.
 class OrientationLockController {
   OrientationLockController._();
 
@@ -51,6 +48,7 @@ class OrientationLockController {
           return;
         }
 
+        await OrientationLockPlatform.requestPermission();
         await GStorage.setting.put(SettingBoxKey.orientationLockEnabled, true);
       });
 
@@ -119,5 +117,4 @@ class OrientationLockController {
     _operationQueue = next;
     return next;
   }
-
 }
