@@ -96,7 +96,6 @@ class OrientationLockController {
         // Do not leave the UI claiming the feature is disabled when native
         // release failed; preserve the previous enabled state for retry.
         await GStorage.setting.put(SettingBoxKey.orientationLockEnabled, true);
-        Error.throwWithStackTrace(error, StackTrace.current);
       }));
     }
   }
