@@ -58,6 +58,7 @@ class SplitModel extends SettingsModel {
     setKey: switchModel.setKey,
     defaultVal: switchModel.defaultVal,
     onChanged: switchModel.onChanged,
+    onToggle: switchModel.onToggle,
     needReboot: switchModel.needReboot,
     leading: normalModel.leading,
     onTap: switchModel.onTap,
@@ -162,6 +163,7 @@ class SwitchModel extends SettingsModel {
   final String setKey;
   final bool defaultVal;
   final ValueChanged<bool>? onChanged;
+  final Future<void> Function(bool value)? onToggle;
   final bool needReboot;
   final void Function(BuildContext context)? onTap;
 
@@ -174,6 +176,7 @@ class SwitchModel extends SettingsModel {
     required this.setKey,
     this.defaultVal = false,
     this.onChanged,
+    this.onToggle,
     this.needReboot = false,
     this.onTap,
   });
@@ -183,6 +186,7 @@ class SwitchModel extends SettingsModel {
     this.defaultVal = false,
     this.needReboot = false,
     this.onChanged,
+    this.onToggle,
     this.onTap,
   }) : title = null;
 
@@ -198,6 +202,7 @@ class SwitchModel extends SettingsModel {
     setKey: setKey,
     defaultVal: defaultVal,
     onChanged: onChanged,
+    onToggle: onToggle,
     needReboot: needReboot,
     leading: leading,
     onTap: onTap,

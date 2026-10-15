@@ -36,6 +36,7 @@ import 'package:PiliPlus/pages/video/post_panel/popup_menu_text.dart';
 import 'package:PiliPlus/pages/video/post_panel/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/orientation_lock/widgets/orientation_lock_button.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_control_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/double_tap_type.dart';
@@ -1875,6 +1876,29 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                               : null,
                           onTap: plPlayerController.takeScreenshot,
                         ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // Keep the orientation button in the screenshot button's column.
+          // Both controls use the same 34dp footprint; place it 10dp below.
+          if (plPlayerController.showFsScreenshotBtn ||
+              plPlayerController.showFsLockBtn)
+            ViewSafeArea(
+              left: false,
+              right: !plPlayerController.removeSafeArea,
+              child: Obx(
+                () => Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionalTranslation(
+                    translation: const Offset(-1, -0.4),
+                    child: Transform.translate(
+                      offset: const Offset(0, 44),
+                      child: OrientationLockButton(
+                        showControls: plPlayerController.showControls.value,
                       ),
                     ),
                   ),
