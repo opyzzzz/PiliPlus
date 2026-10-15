@@ -22,6 +22,8 @@ const _horizontalMenuHeight = 64.0;
 const _verticalMenuHeight = 160.0;
 const _menuItemHeight = 40.0;
 const _menuIconSize = 18.0;
+const _menuCheckIconSize = 16.0;
+const _menuSmallGap = 4.0;
 const _menuLabelSize = 11.0;
 const _verticalLabelSize = 13.0;
 
@@ -228,7 +230,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
             children: [
               Icon(mode.icon, size: _menuIconSize,
                 color: selected ? colorScheme.secondary : Colors.white),
-              const SizedBox(height: 4),
+              const SizedBox(height: _menuSmallGap),
               Text(mode.label, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: _menuLabelSize,
                   color: selected ? colorScheme.secondary : Colors.white)),
@@ -264,7 +266,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
                   color: selected ? colorScheme.secondary : Colors.white)),
               ),
               if (selected)
-                Icon(Icons.check, size: 16, color: colorScheme.secondary),
+                Icon(Icons.check, size: _menuCheckIconSize, color: colorScheme.secondary),
             ],
           ),
         ),
