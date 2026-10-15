@@ -9,6 +9,7 @@ import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/pages/fullscreen_sc_size.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
+import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
@@ -341,6 +342,7 @@ Future<void> _showFullScreenModeDialog(
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.fullScreenMode, res.index);
+    PlPlayerController.refreshOrientationListenerIfExists();
     setState();
   }
 }
@@ -363,6 +365,7 @@ Future<void> _showAngleDegreesDialog(
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.angleDegrees, res.toInt());
+    PlPlayerController.refreshOrientationListenerIfExists();
     setState();
   }
 }
