@@ -128,7 +128,7 @@ class OrientationLockButton extends StatelessWidget {
               height: 58,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: availableWidth.clamp(120.0, 360.0),
+                  maxWidth: availableWidth.clamp(120.0, 360.0).toDouble(),
                 ),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
