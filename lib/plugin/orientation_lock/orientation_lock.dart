@@ -73,32 +73,32 @@ class OrientationLockButton extends StatelessWidget {
     await Get.dialog<void>(
       Builder(
         builder: (dialogContext) => AlertDialog(
-        title: const Text('方向锁定'),
-        content: layout == 0
-            ? SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+          title: const Text('方向锁定'),
+          content: layout == 0
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final mode in _modes)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _modeButton(dialogContext, mode, selectedMode),
+                        ),
+                    ],
+                  ),
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     for (final mode in _modes)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
+                      SizedBox(
+                        width: 124,
                         child: _modeButton(dialogContext, mode, selectedMode),
                       ),
                   ],
                 ),
-              )
-            : Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final mode in _modes)
-                    SizedBox(
-                      width: 124,
-                      child: _modeButton(dialogContext, mode, selectedMode),
-                    ),
-                ],
-              ),
         ),
       ),
     );

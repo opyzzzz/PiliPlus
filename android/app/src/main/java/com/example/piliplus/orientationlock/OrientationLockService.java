@@ -132,8 +132,6 @@ public final class OrientationLockService extends Service {
             } catch (RuntimeException exception) {
                 holderView = null;
                 layoutParams = null;
-                holderView = null;
-                layoutParams = null;
                 return false;
             }
         }
