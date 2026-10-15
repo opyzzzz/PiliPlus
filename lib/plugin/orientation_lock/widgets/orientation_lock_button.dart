@@ -148,7 +148,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
             .clamp(_menuEdgePadding, screenSize.height - menuHeight - _menuEdgePadding)
             .toDouble()
         : anchorRect.top
-            .clamp(edgePadding, screenSize.height - menuHeight - edgePadding)
+            .clamp(_menuEdgePadding, screenSize.height - menuHeight - _menuEdgePadding)
             .toDouble();
 
     _menuEntry = OverlayEntry(
@@ -256,7 +256,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              Icon(mode.icon, size: 18,
+              Icon(mode.icon, size: _menuIconSize,
                 color: selected ? colorScheme.secondary : Colors.white),
               const SizedBox(width: 10),
               Expanded(
