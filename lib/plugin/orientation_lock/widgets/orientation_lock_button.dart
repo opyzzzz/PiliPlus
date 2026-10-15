@@ -9,7 +9,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:hive_ce/hive.dart';
 
 import '../orientation_lock_mode.dart';
-import '../orientation_lock_platform.dart';
+import '../orientation_lock_controller.dart';
 
 class OrientationLockButton extends StatefulWidget {
   const OrientationLockButton({required this.showControls, super.key});
@@ -67,15 +67,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
 
   Future<void> _applyMode(OrientationLockMode mode) async {
     try {
-      if (mode == OrientationLockMode.system) {
-        await OrientationLockPlatform.release();
-      } else {
-        await OrientationLockPlatform.apply(mode);
-      }
-
-      // This value represents the user's explicit selection only. Never infer
-      // it from the device's current orientation or the player's rotation.
-      await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode.wireValue);
+      await OrientationLockController.instance.applyMode(mode);
       if (mounted && mode != OrientationLockMode.system) {
         SmartDialog.showToast(
           '已请求${mode.label}方向',
