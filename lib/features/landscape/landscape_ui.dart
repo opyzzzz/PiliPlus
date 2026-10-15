@@ -42,15 +42,14 @@ abstract final class LandscapeUi {
   );
 
   static PopupModel<LandscapeMode> buildModeSetting({
-    required void Function() applyMode,
+    required Future<void>? Function() applyMode,
   }) => PopupModel(
     title: '横屏模式',
     leading: const Icon(Icons.screen_rotation_outlined),
     value: () => Pref.landscapeMode,
     items: LandscapeMode.values,
     onSelected: (value, setState) async {
-      await LandscapeFeature.setMode(value);
-      applyMode();
+      await LandscapeFeature.setModeAndApply(value, applyMode);
       setState();
     },
   );

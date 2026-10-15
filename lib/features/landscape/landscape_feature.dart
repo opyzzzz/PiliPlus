@@ -29,6 +29,32 @@ abstract final class LandscapeFeature {
   /// Disable the forced landscape policy.
   static Future<void> disable() => setMode(LandscapeMode.disabled);
 
+  /// Persist the selected mode, then apply it through the caller's adapter.
+  ///
+  /// Keeping the adapter injected avoids depending on fullscreen.dart.
+  static Future<void> setModeAndApply(
+    LandscapeMode mode,
+    Future<void>? Function() applyMode,
+  ) async {
+    await setMode(mode);
+    await applyMode();
+  }
+
+  /// Switch between normal and reverse landscape, then apply the result.
+  static Future<void> toggleAndApply(
+    Future<void>? Function() applyMode,
+  ) => setModeAndApply(
+    Pref.landscapeMode == LandscapeMode.landscape
+        ? LandscapeMode.reverseLandscape
+        : LandscapeMode.landscape,
+    applyMode,
+  );
+
+  /// Disable forced landscape and apply the resulting orientation policy.
+  static Future<void> disableAndApply(
+    Future<void>? Function() applyMode,
+  ) => setModeAndApply(LandscapeMode.disabled, applyMode);
+
   /// Resolve a requested orientation set using the configured policy.
   static List<DeviceOrientation> resolveOrientations(
     List<DeviceOrientation> requested,

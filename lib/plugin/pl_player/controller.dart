@@ -1761,15 +1761,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     videoShot = await VideoHttp.videoshot(bvid: bvid, cid: cid!);
   }
 
-  Future<void> toggleLandscapeMode() async {
-    await LandscapeFeature.toggle();
-    applyLandscapeMode();
-  }
+  Future<void> toggleLandscapeMode() =>
+      LandscapeFeature.toggleAndApply(applyLandscapeMode);
 
-  Future<void> disableLandscapeMode() async {
-    await LandscapeFeature.disable();
-    resetScreenRotation();
-  }
+  Future<void> disableLandscapeMode() =>
+      LandscapeFeature.disableAndApply(applyLandscapeMode);
 
   int _screenshotState = 0;
   Future<void> takeScreenshot() async {
