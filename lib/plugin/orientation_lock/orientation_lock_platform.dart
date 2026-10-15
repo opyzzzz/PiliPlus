@@ -11,14 +11,19 @@ abstract final class OrientationLockPlatform {
 
   static Future<void> _orientationQueue = Future<void>.value();
 
-  static Future<void> requestPermission() async {
-    if (!Platform.isAndroid) return;
+  /// Requests overlay permission and reports whether it is already granted.
+  /// Android returns false when it opens system settings; the caller must not
+  /// persist the feature as enabled until a later attempt confirms permission.
+  static Future<bool> requestPermission() async {
+    if (!Platform.isAndroid) return true;
     try {
-      await _channel.invokeMethod<bool>(
-        OrientationLockProtocol.requestOverlayPermission,
-      );
+      return await _channel.invokeMethod<bool>(
+            OrientationLockProtocol.requestOverlayPermission,
+          ) ??
+          false;
     } on PlatformException catch (e) {
       SmartDialog.showToast(e.message ?? '无法请求悬浮窗权限');
+      return false;
     }
   }
 
