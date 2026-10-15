@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/services.dart';
-import 'package:hive_ce/hive.dart';
 
 import 'orientation_lock_mode.dart';
 import 'orientation_lock_platform.dart';
@@ -14,17 +13,11 @@ import 'orientation_lock_platform.dart';
 /// those external changes back through this controller and its serialized
 /// operation queue.
 class OrientationLockController {
-  OrientationLockController._() {
-    _settingsSubscription = GStorage.setting.watch().listen(_onSettingChanged);
-  }
+  OrientationLockController._();
 
   static final OrientationLockController instance = OrientationLockController._();
 
-  StreamSubscription<BoxEvent>? _settingsSubscription;
   Future<void> _operationQueue = Future<void>.value();
-  bool _disposed = false;
-  int _internalDisabledWrites = 0;
-  int _internalModeWrites = 0;
 
   bool _suspended = false;
 
@@ -113,64 +106,12 @@ class OrientationLockController {
         }
       });
 
-  void _onSettingChanged(BoxEvent event) {
-    if (_disposed) return;
-
-    if (event.key == SettingBoxKey.orientationLockEnabled && event.value == false) {
-      if (_internalDisabledWrites > 0) {
-        _internalDisabledWrites--;
-        return;
-      }
-      unawaited(_enqueue(() async {
-        await OrientationLockPlatform.release();
-        await _writeMode(OrientationLockMode.system);
-      }).catchError((Object error) async {
-        // Preserve the enabled state if native release fails, allowing retry.
-        await GStorage.setting.put(SettingBoxKey.orientationLockEnabled, true);
-      }));
-      return;
-    }
-
-    if (event.key == SettingBoxKey.orientationLockMode) {
-      if (_internalModeWrites > 0) {
-        _internalModeWrites--;
-        return;
-      }
-      // Legacy settings widgets that write the mode directly are reconciled
-      // through this controller as well. A disabled feature never applies it.
-      unawaited(_enqueue(() async {
-        if (!enabled || _suspended) return;
-        final mode = selectedMode;
-        if (mode == OrientationLockMode.system) {
-          await OrientationLockPlatform.release();
-        } else {
-          await OrientationLockPlatform.apply(mode);
-        }
-      }).catchError((Object error) {
-        // The initiating legacy UI has no Future to await; avoid an uncaught
-        // asynchronous error. Explicit controller calls still report failures.
-      }));
-    }
-  }
-
   Future<void> _writeMode(OrientationLockMode mode) async {
-    _internalModeWrites++;
-    try {
-      await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode.wireValue);
-    } catch (_) {
-      _internalModeWrites--;
-      rethrow;
-    }
+    await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode.wireValue);
   }
 
   Future<void> _writeEnabled(bool value) async {
-    _internalDisabledWrites++;
-    try {
-      await GStorage.setting.put(SettingBoxKey.orientationLockEnabled, value);
-    } catch (_) {
-      _internalDisabledWrites--;
-      rethrow;
-    }
+    await GStorage.setting.put(SettingBoxKey.orientationLockEnabled, value);
   }
 
   Future<void> _enqueue(Future<void> Function() operation) {
@@ -179,9 +120,4 @@ class OrientationLockController {
     return next;
   }
 
-  Future<void> dispose() async {
-    _disposed = true;
-    await _settingsSubscription?.cancel();
-    _settingsSubscription = null;
-  }
 }
