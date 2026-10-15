@@ -75,9 +75,10 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
     if (widget.onToggle != null) {
       try {
         await widget.onToggle!(val);
-      } catch (_) {
+      } catch (error) {
         _setVal();
         if (mounted) setState(() {});
+        SmartDialog.showToast('方向锁定操作失败：$error');
         return;
       }
     } else {
