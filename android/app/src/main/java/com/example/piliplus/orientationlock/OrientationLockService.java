@@ -113,22 +113,28 @@ public final class OrientationLockService extends Service {
     }
 
     private boolean setSystemOrientation(int orientation) {
+        final int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                : WindowManager.LayoutParams.TYPE_PHONE;
+        layoutParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                type,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.RGBA_8888
+        );
+        layoutParams.gravity = Gravity.TOP | Gravity.START;
+
         if (holderView == null) {
-            final int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                    : WindowManager.LayoutParams.TYPE_PHONE;
-            layoutParams = new WindowManager.LayoutParams(
-                    0,
-                    0,
-                    type,
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
-                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                    PixelFormat.RGBA_8888
-            );
-            layoutParams.gravity = Gravity.TOP | Gravity.START;
             holderView = new Space(this);
+            holderView.setClickable(false);
+            holderView.setFocusable(false);
+            holderView.setFocusableInTouchMode(false);
+            holderView.setLongClickable(false);
             try {
                 windowManager.addView(holderView, layoutParams);
+                holderView.setVisibility(android.view.View.GONE);
             } catch (RuntimeException exception) {
                 holderView = null;
                 layoutParams = null;
@@ -139,6 +145,10 @@ public final class OrientationLockService extends Service {
         layoutParams.screenOrientation = orientation;
         try {
             windowManager.updateViewLayout(holderView, layoutParams);
+            // Match the upstream OrientationLock implementation: a zero-size,
+            // permanently invisible overlay may not request an orientation on
+            // some Android builds. Keep the holder non-interactive but visible.
+            holderView.setVisibility(android.view.View.VISIBLE);
             return true;
         } catch (RuntimeException exception) {
             removeOrientationLayout();
