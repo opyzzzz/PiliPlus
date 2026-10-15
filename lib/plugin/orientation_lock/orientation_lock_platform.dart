@@ -4,18 +4,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 import 'orientation_lock_mode.dart';
+import 'orientation_lock_protocol.dart';
 
 abstract final class OrientationLockPlatform {
-  static const _channel = MethodChannel(
-    'com.example.piliplus/orientation_lock',
-  );
+  static const _channel = MethodChannel(OrientationLockProtocol.channelName);
 
   static Future<void> _orientationQueue = Future<void>.value();
 
   static Future<void> requestPermission() async {
     if (!Platform.isAndroid) return;
     try {
-      await _channel.invokeMethod<bool>('requestOverlayPermission');
+      await _channel.invokeMethod<bool>(
+        OrientationLockProtocol.requestOverlayPermission,
+      );
     } on PlatformException catch (e) {
       SmartDialog.showToast(e.message ?? '无法请求悬浮窗权限');
     }
@@ -30,8 +31,8 @@ abstract final class OrientationLockPlatform {
     // overwrite the result callback for the previous request.
     final request = _orientationQueue.catchError((_) {}).then((_) async {
       await _channel.invokeMethod<bool>(
-        'setOrientation',
-        <String, Object>{'mode': mode.wireValue},
+        OrientationLockProtocol.setOrientation,
+        <String, Object>{OrientationLockProtocol.modeArgument: mode.wireValue},
       );
     });
     _orientationQueue = request;

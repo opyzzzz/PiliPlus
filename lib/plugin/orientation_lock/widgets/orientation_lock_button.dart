@@ -5,6 +5,7 @@ import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:hive_ce/hive.dart';
 
 import '../orientation_lock_mode.dart';
 import '../orientation_lock_platform.dart';
@@ -139,7 +140,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
                               for (final mode in _modes)
                                 _buildHorizontalItem(
                                   mode,
-                                  selectedMode,
+                                  _selectedMode,
                                   theme.colorScheme,
                                   menuWidth / _modes.length,
                                 ),
@@ -150,7 +151,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             for (final mode in _modes)
-                              _buildVerticalItem(mode, selectedMode, theme.colorScheme),
+                              _buildVerticalItem(mode, _selectedMode, theme.colorScheme),
                           ],
                         ),
                 ),

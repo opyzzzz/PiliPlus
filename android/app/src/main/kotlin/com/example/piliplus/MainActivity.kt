@@ -13,9 +13,12 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
-    // Android keeps a small lifecycle mirror because native onStart/onStop must
-    // restore/release the overlay even when the player UI is not mounted.
+    // Keep this protocol in sync with lib/plugin/orientation_lock/orientation_lock_protocol.dart.
     companion object {
+        private const val CHANNEL_ORIENTATION_LOCK = "com.example.piliplus/orientation_lock"
+        private const val METHOD_REQUEST_OVERLAY_PERMISSION = "requestOverlayPermission"
+        private const val METHOD_SET_ORIENTATION = "setOrientation"
+        private const val ARG_MODE = "mode"
         private const val KEY_SELECTED_ORIENTATION = "selected_mode"
     }
     private val orientationPrefs by lazy {
@@ -58,10 +61,10 @@ class MainActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.example.piliplus/orientation_lock")
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_ORIENTATION_LOCK)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "requestOverlayPermission" -> {
+                    METHOD_REQUEST_OVERLAY_PERMISSION -> {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                             !Settings.canDrawOverlays(this)
                         ) {
@@ -76,8 +79,8 @@ class MainActivity : AudioServiceActivity() {
                             result.success(true)
                         }
                     }
-                    "setOrientation" -> {
-                        val mode = call.argument<String>("mode") ?: "default"
+                    METHOD_SET_ORIENTATION -> {
+                        val mode = call.argument<String>(ARG_MODE) ?: "default"
                         val service = Intent(this, OrientationLockService::class.java)
                             .putExtra(OrientationLockService.EXTRA_MODE, mode)
                         if (mode == "default") {
