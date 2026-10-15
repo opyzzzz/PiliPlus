@@ -52,10 +52,9 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onStop() {
-        // PiP remains part of the app experience, so keep its selected lock.
-        if (!AndroidHelper.isPipMode) {
-            releaseAppliedOrientation()
-        }
+        // Home/background and PiP both suspend the applied lock. The selected
+        // mode is kept in preferences so it can be restored on foreground return.
+        releaseAppliedOrientation()
         super.onStop()
     }
 
@@ -156,5 +155,14 @@ class MainActivity : AudioServiceActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration?) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         AndroidHelper.isPipMode = isInPictureInPictureMode
+
+        if (isInPictureInPictureMode) {
+            // PiP is a temporary suspension, not a user-requested disable:
+            // release the native overlay without clearing the saved mode.
+            releaseAppliedOrientation()
+        } else {
+            // PiP exit may not produce a fresh onStart() transition.
+            restoreSelectedOrientation()
+        }
     }
 }
