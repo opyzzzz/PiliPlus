@@ -11,6 +11,20 @@ import 'package:hive_ce/hive.dart';
 import '../orientation_lock_mode.dart';
 import '../orientation_lock_controller.dart';
 
+const _buttonSize = 34.0;
+const _buttonIconSize = 20.0;
+const _menuEdgePadding = 8.0;
+const _menuGap = 8.0;
+const _menuMinWidth = 120.0;
+const _menuMaxWidth = 296.0;
+const _verticalMenuWidth = 156.0;
+const _horizontalMenuHeight = 64.0;
+const _verticalMenuHeight = 160.0;
+const _menuItemHeight = 40.0;
+const _menuIconSize = 18.0;
+const _menuLabelSize = 11.0;
+const _verticalLabelSize = 13.0;
+
 class OrientationLockButton extends StatefulWidget {
   const OrientationLockButton({required this.showControls, super.key});
 
@@ -115,25 +129,23 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
     );
     final theme = Theme.of(context);
     final horizontal = layout == 0;
-    const edgePadding = 8.0;
-    const menuGap = 8.0;
     final menuWidth = horizontal
-        ? (screenSize.width - edgePadding * 2)
-            .clamp(120.0, 296.0)
+        ? (screenSize.width - _menuEdgePadding * 2)
+            .clamp(_menuMinWidth, _menuMaxWidth)
             .toDouble()
-        : 156.0;
-    final menuHeight = horizontal ? 64.0 : 160.0;
+        : _verticalMenuWidth;
+    final menuHeight = horizontal ? _horizontalMenuHeight : _verticalMenuHeight;
 
     // Both layouts share the button as their anchor and expand to its left.
     // Keep the menu on-screen on narrow devices, even if that requires
     // reducing the available horizontal scrolling viewport.
-    final preferredLeft = anchorRect.left - menuWidth - menuGap;
-    final left = preferredLeft >= edgePadding
+    final preferredLeft = anchorRect.left - menuWidth - _menuGap;
+    final left = preferredLeft >= _menuEdgePadding
         ? preferredLeft
-        : edgePadding;
+        : _menuEdgePadding;
     final top = horizontal
         ? (anchorRect.center.dy - menuHeight / 2)
-            .clamp(edgePadding, screenSize.height - menuHeight - edgePadding)
+            .clamp(_menuEdgePadding, screenSize.height - menuHeight - _menuEdgePadding)
             .toDouble()
         : anchorRect.top
             .clamp(edgePadding, screenSize.height - menuHeight - edgePadding)
@@ -207,18 +219,18 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
       },
       child: SizedBox(
         width: itemWidth,
-        height: 64,
+        height: _horizontalMenuHeight,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(mode.icon, size: 18,
+              Icon(mode.icon, size: _menuIconSize,
                 color: selected ? colorScheme.secondary : Colors.white),
               const SizedBox(height: 4),
               Text(mode.label, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11,
+                style: TextStyle(fontSize: _menuLabelSize,
                   color: selected ? colorScheme.secondary : Colors.white)),
             ],
           ),
@@ -239,7 +251,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
         _applyMode(mode);
       },
       child: SizedBox(
-        height: 40,
+        height: _menuItemHeight,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
@@ -248,7 +260,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
                 color: selected ? colorScheme.secondary : Colors.white),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(mode.label, style: TextStyle(fontSize: 13,
+                child: Text(mode.label, style: TextStyle(fontSize: _verticalLabelSize,
                   color: selected ? colorScheme.secondary : Colors.white)),
               ),
               if (selected)
@@ -275,9 +287,12 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
     super.dispose();
   }
 
+  bool get _shouldShowButton =>
+      Platform.isAndroid && widget.showControls && _enabled;
+
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isAndroid || !widget.showControls || !_enabled) {
+    if (!_shouldShowButton) {
       return const SizedBox.shrink();
     }
 
@@ -289,8 +304,8 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
       child: Tooltip(
         message: '方向锁定',
         child: SizedBox(
-          width: 34,
-          height: 34,
+          width: _buttonSize,
+          height: _buttonSize,
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
@@ -299,7 +314,7 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
               child: const Center(
                 child: Icon(
                   Icons.screen_rotation_outlined,
-                  size: 20,
+                  size: _buttonIconSize,
                   color: Colors.white,
                 ),
               ),
