@@ -1515,7 +1515,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     try {
       if (status) {
         if (PlatformUtils.isMobile) {
-          hideSystemBar();
+          await hideSystemBar();
           await changeOrientation(
             isVertical: isVertical,
             orientation: orientation,
@@ -1526,7 +1526,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       } else {
         if (PlatformUtils.isMobile) {
           if (!removeSafeArea) {
-            showSystemBar();
+            await showSystemBar();
           }
           if (orientation == null && mode == .none) {
             return;
