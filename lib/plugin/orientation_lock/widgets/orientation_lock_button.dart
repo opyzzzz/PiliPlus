@@ -121,10 +121,6 @@ class _OrientationLockButtonState extends State<OrientationLockButton> {
       SettingBoxKey.orientationLockMenuLayout,
       defaultValue: 0,
     );
-    final selectedMode = GStorage.setting.get(
-      SettingBoxKey.orientationLockMode,
-      defaultValue: 'default',
-    );
     final theme = Theme.of(context);
     final horizontal = layout == 0;
     const edgePadding = 8.0;
