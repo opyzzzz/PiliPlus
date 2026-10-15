@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recogniz
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/models/common/bar_hide_type.dart';
+import 'package:PiliPlus/models/common/landscape_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
@@ -632,6 +633,17 @@ abstract final class Pref {
     return horizontalScreen;
   }
 
+  static LandscapeMode get landscapeMode {
+    final index = _setting.get(
+      SettingBoxKey.landscapeMode,
+      defaultValue: LandscapeMode.disabled.index,
+    );
+    if (index is int && index >= 0 && index < LandscapeMode.values.length) {
+      return LandscapeMode.values[index];
+    }
+    return LandscapeMode.disabled;
+  }
+
   static String get banWordForDyn =>
       _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
 
@@ -918,6 +930,9 @@ abstract final class Pref {
 
   static bool get showFsScreenshotBtn =>
       _setting.get(SettingBoxKey.showFsScreenshotBtn, defaultValue: true);
+
+  static bool get showFsLandscapeBtn =>
+      _setting.get(SettingBoxKey.showFsLandscapeBtn, defaultValue: true);
 
   static bool get showFsLockBtn =>
       _setting.get(SettingBoxKey.showFsLockBtn, defaultValue: true);
