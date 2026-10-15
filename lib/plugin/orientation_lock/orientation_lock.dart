@@ -60,7 +60,51 @@ class OrientationLockButton extends StatelessWidget {
     (value: 'reverseLandscape', label: '反向横屏', icon: Icons.screen_rotation),
   ];
 
-  void _selectMode(BuildContext context) {
+  Future<void> _applyMode(String mode) async {
+    try {
+      await OrientationLockPlatform.setOrientation(mode);
+      await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode);
+    } on PlatformException catch (e) {
+      SmartDialog.showToast(e.message ?? '方向锁定失败');
+    } catch (_) {
+      SmartDialog.showToast('方向锁定失败');
+    }
+  }
+
+  Widget _modeMenuItem(
+    BuildContext context,
+    ({String value, String label, IconData icon}) mode,
+    String selectedMode,
+  ) {
+    return PopupMenuItem<String>(
+      value: mode.value,
+      height: 40,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(mode.icon, size: 18),
+          const SizedBox(width: 10),
+          Text(mode.label),
+          if (mode.value == selectedMode) ...[
+            const SizedBox(width: 12),
+            const Icon(Icons.check, size: 16),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Platform.isAndroid ||
+        !showControls ||
+        !GStorage.setting.get(
+          SettingBoxKey.orientationLockEnabled,
+          defaultValue: false,
+        )) {
+      return const SizedBox.shrink();
+    }
+
     final layout = GStorage.setting.get(
       SettingBoxKey.orientationLockMenuLayout,
       defaultValue: 0,
@@ -69,97 +113,81 @@ class OrientationLockButton extends StatelessWidget {
       SettingBoxKey.orientationLockMode,
       defaultValue: 'default',
     );
-    final overlay = Overlay.of(context, rootOverlay: true);
-    late final OverlayEntry entry;
 
-    void closeMenu() {
-      if (entry.mounted) {
-        entry.remove();
-      }
-    }
-
-    entry = OverlayEntry(
-      builder: (overlayContext) => Material(
-        color: Colors.black54,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: closeMenu,
-          child: SafeArea(
-            child: Center(
-              child: GestureDetector(
-                onTap: () {},
-                child: AlertDialog(
-                  title: const Text('方向锁定'),
-                  content: layout == 0
-                      ? SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (final mode in _modes)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: _modeButton(
-                                    overlayContext,
-                                    mode,
-                                    selectedMode,
-                                    closeMenu,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        )
-                      : Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+    return PopupMenuButton<String>(
+      tooltip: '方向锁定',
+      requestFocus: false,
+      initialValue: selectedMode,
+      color: Colors.black.withValues(alpha: 0.8),
+      onSelected: _applyMode,
+      itemBuilder: (menuContext) {
+        if (layout == 0) {
+          // 横向展开：使用与播放器倍速菜单一致的 PopupMenu 外观，
+          // 在单个菜单项内横向排列各方向，避免创建 DialogRoute。
+          return [
+            PopupMenuItem<String>(
+              enabled: false,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              height: 48,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final mode in _modes)
+                    InkWell(
+                      onTap: () => Navigator.of(menuContext).pop(mode.value),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            for (final mode in _modes)
-                              SizedBox(
-                                width: 124,
-                                child: _modeButton(
-                                  overlayContext,
-                                  mode,
-                                  selectedMode,
-                                  closeMenu,
-                                ),
+                            Icon(
+                              mode.icon,
+                              size: 18,
+                              color: mode.value == selectedMode
+                                  ? Theme.of(menuContext).colorScheme.secondary
+                                  : null,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              mode.label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: mode.value == selectedMode
+                                    ? Theme.of(menuContext).colorScheme.secondary
+                                    : null,
                               ),
+                            ),
                           ],
                         ),
-                ),
+                      ),
+                    ),
+                ],
               ),
             ),
+          ];
+        }
+        return _modes
+            .map((mode) => _modeMenuItem(menuContext, mode, selectedMode))
+            .toList();
+      },
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Color(0x45000000),
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(
+            Icons.screen_rotation_outlined,
+            size: 20,
+            color: Colors.white,
           ),
         ),
-      ),
-    );
-
-    overlay.insert(entry);
-  }
-
-  Widget _modeButton(
-    BuildContext dialogContext,
-    ({String value, String label, IconData icon}) mode,
-    String selectedMode,
-    VoidCallback closeMenu,
-  ) {
-    return OutlinedButton.icon(
-      onPressed: () async {
-        closeMenu();
-        try {
-          await OrientationLockPlatform.setOrientation(mode.value);
-          await GStorage.setting.put(SettingBoxKey.orientationLockMode, mode.value);
-        } on PlatformException catch (e) {
-          SmartDialog.showToast(e.message ?? '方向锁定失败');
-        } catch (_) {
-          SmartDialog.showToast('方向锁定失败');
-        }
-      },
-      icon: Icon(mode.icon),
-      label: Text(mode.label),
-      style: OutlinedButton.styleFrom(
-        backgroundColor: mode.value == selectedMode
-            ? Theme.of(dialogContext).colorScheme.secondaryContainer
-            : null,
       ),
     );
   }
