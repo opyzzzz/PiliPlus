@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:PiliPlus/features/landscape/landscape_ui.dart';
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/style.dart';
@@ -1873,6 +1874,31 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                               ? _screenshotWebp
                               : null,
                           onTap: plPlayerController.takeScreenshot,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // 横屏模式切换
+          if (LandscapeUi.showToggleButton)
+            ViewSafeArea(
+              left: false,
+              right: !plPlayerController.removeSafeArea,
+              child: Obx(
+                () => Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionalTranslation(
+                    translation: const Offset(-1, -0.4),
+                    child: Transform.translate(
+                      offset: const Offset(0, 56),
+                      child: Offstage(
+                        offstage: !plPlayerController.showControls.value,
+                        child: LandscapeUi.buildToggleButton(
+                          onToggle: plPlayerController.toggleLandscapeMode,
+                          onLongPress: plPlayerController.disableLandscapeMode,
                         ),
                       ),
                     ),
