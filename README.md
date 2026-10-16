@@ -213,9 +213,15 @@
 
 <br/>
 
-## 下载
+## 下载与安装
 
-可以从 [Releases](https://github.com/bggRGjQaUbCoE/PiliPlus/releases) 下载，或克隆仓库拉取代码后在本地编译。
+- **官方上游版本：** [查看上游 Releases](https://github.com/bggRGjQaUbCoE/PiliPlus/releases)
+- **本仓库补丁版：** [查看本仓库 Releases](https://github.com/opyzzzz/PiliPlus/releases)
+- **选择安装包：** ARM64、ARMv7 或 x86_64，请按设备 CPU 架构选择。
+- **校验文件：** 下载 `SHA256SUMS.txt`，在本地验证 APK 的 SHA-256 值。
+- **从源码构建：** 克隆仓库后按项目构建说明操作。
+
+手机浏览时建议直接进入 Releases，选择最新版本并下载对应架构的 APK。
 
 <br/>
 
