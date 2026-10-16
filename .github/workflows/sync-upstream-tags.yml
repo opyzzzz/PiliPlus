@@ -67,7 +67,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh workflow run build-diy.yml --ref main -f mode=auto
+          gh workflow run build-diy.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=auto
           echo "Dispatched build-diy automatic scan on main."
 
       - name: Report failure
