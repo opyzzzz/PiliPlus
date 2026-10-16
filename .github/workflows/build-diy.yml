@@ -1,0 +1,242 @@
+name: Build DIY Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing source tag to build (for example: 2.1.6.2 or patched/2.1.6.2)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-diy-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Build Android from tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout workflow revision
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate source tag and protect existing release
+        id: source
+        env:
+          SOURCE_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${SOURCE_TAG//[[:space:]]/}" ]]; then
+            echo "::error::A source tag is required."
+            exit 1
+          fi
+
+          if ! git check-ref-format "refs/tags/$SOURCE_TAG"; then
+            echo "::error::Invalid Git tag name: $SOURCE_TAG"
+            exit 1
+          fi
+
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$SOURCE_TAG" >/dev/null; then
+            echo "::error::Source tag '$SOURCE_TAG' does not exist in this repository. No tag will be created or moved."
+            exit 1
+          fi
+
+          # Never overwrite an existing Release or its assets.
+          encoded_tag=$(jq -rn --arg value "$SOURCE_TAG" '$value | @uri')
+          status=$(curl --silent --show-error --output /tmp/release.json --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$encoded_tag")
+
+          if [[ "$status" == "200" ]]; then
+            echo "::error::A GitHub Release for '$SOURCE_TAG' already exists. Existing releases are not overwritten."
+            exit 1
+          elif [[ "$status" != "404" ]]; then
+            echo "::error::Could not safely check existing Release (GitHub API HTTP $status)."
+            cat /tmp/release.json
+            exit 1
+          fi
+
+          git fetch --force origin "refs/tags/$SOURCE_TAG:refs/tags/$SOURCE_TAG"
+          source_sha=$(git rev-parse "refs/tags/$SOURCE_TAG^{commit}")
+          git checkout --detach "$source_sha"
+
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${source_sha:0:12}" >> "$GITHUB_OUTPUT"
+          echo "tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Source tag: $SOURCE_TAG"
+          echo "Resolved commit: $source_sha"
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            android/*.gradle*
+            android/**/gradle-wrapper.properties
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Apply Android patches
+        shell: pwsh
+        run: lib/scripts/patch.ps1 android
+
+      - name: Configure signing key (optional)
+        env:
+          SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$SIGN_KEYSTORE_BASE64" ]]; then
+            if [[ -z "$KEYSTORE_PASSWORD" || -z "$KEY_ALIAS" || -z "$KEY_PASSWORD" ]]; then
+              echo "::error::SIGN_KEYSTORE_BASE64 is set, but one or more signing secrets are missing."
+              exit 1
+            fi
+
+            mkdir -p android/app
+            printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
+            test -s android/app/key.jks || {
+              echo "::error::Decoded signing keystore is empty."
+              exit 1
+            }
+
+            # Java Properties values must not be wrapped in shell-style quotes:
+            # those quotes become part of the keystore path/password.
+            {
+              printf 'storeFile=key.jks\n'
+              printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+              printf 'keyAlias=%s\n' "$KEY_ALIAS"
+              printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+            } > android/key.properties
+            echo "Signing configured from repository secrets."
+          else
+            # Some older source tags contain key.properties pointing at a private
+            # keystore that is not available in this workflow. Remove that stale
+            # config so Gradle falls back to its debug signing config.
+            rm -f android/key.properties android/app/key.jks
+            echo "Signing secrets are not configured; using the project's debug signing configuration."
+          fi
+
+      - name: Set build version metadata
+        shell: pwsh
+        run: lib/scripts/build.ps1 android
+
+      - name: Build release APKs
+        run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --no-pub
+
+      - name: Rename and verify APKs
+        id: artifacts
+        shell: bash
+        env:
+          BUILD_VERSION: ${{ env.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(build/app/outputs/flutter-apk/app-*-release.apk)
+          if (( ${#apks[@]} == 0 )); then
+            echo "::error::Flutter produced no split APK files."
+            exit 1
+          fi
+
+          for file in "${apks[@]}"; do
+            abi=$(basename "$file" | sed -E 's/^app-(.*)-release\.apk$/\1/')
+            case "$abi" in
+              arm64-v8a|armeabi-v7a|x86_64) ;;
+              *)
+                echo "::error::Unexpected APK ABI filename: $file"
+                exit 1
+                ;;
+            esac
+            mv "$file" "PiliPlus_android_${GITHUB_RUN_NUMBER}_${abi}.apk"
+          done
+
+          if [[ -n "$BUILD_VERSION" ]]; then
+            for file in PiliPlus_android_${GITHUB_RUN_NUMBER}_*.apk; do
+              abi=$(basename "$file" | sed -E "s/^PiliPlus_android_${GITHUB_RUN_NUMBER}_(.*)\\.apk$/\\1/")
+              case "$abi" in
+                arm64-v8a|armeabi-v7a|x86_64) ;;
+                *)
+                  echo "::error::Unexpected intermediate APK filename: $file"
+                  exit 1
+                  ;;
+              esac
+              mv "$file" "PiliPlus_android_${BUILD_VERSION}_${abi}.apk"
+            done
+          else
+            echo "::error::Build version was not exported by lib/scripts/build.ps1."
+            exit 1
+          fi
+
+          final_apks=(PiliPlus_android_*.apk)
+          if (( ${#final_apks[@]} == 0 )); then
+            echo "::error::APK renaming did not produce release assets."
+            exit 1
+          fi
+
+          sha256sum "${final_apks[@]}" > SHA256SUMS.txt
+          echo "count=${#final_apks[@]}" >> "$GITHUB_OUTPUT"
+          printf 'Verified APK files:\n'
+          ls -lh "${final_apks[@]}" SHA256SUMS.txt
+
+      - name: Prepare release notes
+        env:
+          SOURCE_TAG: ${{ steps.source.outputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          SIGNING_CONFIGURED: ${{ secrets.SIGN_KEYSTORE_BASE64 != '' }}
+        shell: bash
+        run: |
+          {
+            printf 'Android APKs built from source tag `%s`.\n\n' "$SOURCE_TAG"
+            printf -- '- Source commit: `%s`\n' "$SOURCE_SHA"
+            printf -- '- Workflow run: %s\n' "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            printf '%s\n' '- APKs: split by Android ABI (arm64-v8a, armeabi-v7a, x86_64; available outputs are attached)'
+            if [[ "$SIGNING_CONFIGURED" == "true" ]]; then
+              printf '%s\n' '- Signing: repository signing keystore configured'
+            else
+              printf '%s\n' '- Signing: repository signing keystore not configured'
+            fi
+            printf '%s\n' '- SHA-256 checksums: see `SHA256SUMS.txt`'
+          } > RELEASE_NOTES.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.source.outputs.tag }}
+          name: ${{ steps.source.outputs.tag }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            PiliPlus_android_*.apk
+            SHA256SUMS.txt
+          fail_on_unmatched_files: true
+          token: ${{ github.token }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-diy-android-${{ steps.source.outputs.short_sha }}
+          path: |
+            PiliPlus_android_*.apk
+            SHA256SUMS.txt
+          if-no-files-found: error
