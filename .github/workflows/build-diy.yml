@@ -3,22 +3,31 @@ name: Build DIY Android
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Existing source tag to build (for example: 2.1.6.2 or patched/2.1.6.2)"
+      mode:
+        description: "Build a specified tag or automatically select the newest unpublished patched tag"
         required: true
+        type: choice
+        options:
+          - manual
+          - auto
+        default: manual
+      tag:
+        description: "Source tag for manual mode (for example: 2.1.6.2 or patched/2.1.6.2)"
+        required: false
         type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: build-diy-${{ inputs.tag }}
+  group: build-diy-${{ inputs.tag || inputs.mode || github.run_id }}
   cancel-in-progress: false
 
 jobs:
   android:
     name: Build Android from tag
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: write
 
@@ -26,20 +35,79 @@ jobs:
       - name: Checkout workflow revision
         uses: actions/checkout@v7
         with:
+          ref: main
           fetch-depth: 0
 
-      - name: Validate source tag and protect existing release
+      - name: Select and validate source tag
         id: source
         env:
-          SOURCE_TAG: ${{ inputs.tag }}
+          BUILD_MODE: ${{ inputs.mode || 'manual' }}
+          INPUT_TAG: ${{ inputs.tag || '' }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ -z "${SOURCE_TAG//[[:space:]]/}" ]]; then
-            echo "::error::A source tag is required."
+          api_url="https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags"
+          check_release() {
+            local tag encoded status
+            tag="$1"
+            encoded=$(jq -rn --arg value "$tag" '$value | @uri')
+            status=$(curl --silent --show-error --output /tmp/release.json --write-out '%{http_code}' \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "$api_url/$encoded")
+            printf '%s' "$status"
+          }
+
+          if [[ "$BUILD_MODE" != manual && "$BUILD_MODE" != auto ]]; then
+            echo "::error::BUILD_MODE must be manual or auto."
             exit 1
+          fi
+
+          if [[ "$BUILD_MODE" == auto ]]; then
+            echo "Automatic mode: scanning patched/* tags from newest to oldest."
+            mapfile -t candidates < <(
+              git ls-remote --tags --refs origin 'refs/tags/patched/*' |
+                awk '{sub("refs/tags/", "", $2); print $2}' |
+                grep -E '^patched/v?[0-9]+(\.[0-9]+)+$' |
+                sort -V -r
+            )
+
+            SOURCE_TAG=""
+            for candidate in "${candidates[@]}"; do
+              status=$(check_release "$candidate")
+              if [[ "$status" == 404 ]]; then
+                SOURCE_TAG="$candidate"
+                echo "Selected unpublished patched tag: $SOURCE_TAG"
+                break
+              elif [[ "$status" == 200 ]]; then
+                asset_names=$(jq -r '.assets[]?.name' /tmp/release.json)
+                if ! grep -qE '\.apk$' <<< "$asset_names" || ! grep -qx 'SHA256SUMS.txt' <<< "$asset_names"; then
+                  echo "::error::Release for '$candidate' exists but is incomplete (requires at least one APK and SHA256SUMS.txt). Repair it manually before automatic publishing can continue."
+                  exit 1
+                fi
+                echo "Already published completely; skipping candidate: $candidate"
+              else
+                echo "::error::Could not safely check Release for '$candidate' (GitHub API HTTP $status)."
+                cat /tmp/release.json
+                exit 1
+              fi
+            done
+
+            if [[ -z "$SOURCE_TAG" ]]; then
+              echo "No unpublished patched tags found; nothing to build."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "No unpublished patched tags found." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          else
+            SOURCE_TAG="$INPUT_TAG"
+            if [[ -z "${SOURCE_TAG//[[:space:]]/}" ]]; then
+              echo "::error::A source tag is required in manual mode."
+              exit 1
+            fi
           fi
 
           if ! git check-ref-format "refs/tags/$SOURCE_TAG"; then
@@ -47,23 +115,31 @@ jobs:
             exit 1
           fi
 
-          if ! git ls-remote --exit-code --tags origin "refs/tags/$SOURCE_TAG" >/dev/null; then
-            echo "::error::Source tag '$SOURCE_TAG' does not exist in this repository. No tag will be created or moved."
+          if [[ "$BUILD_MODE" == auto && ! "$SOURCE_TAG" =~ ^patched/v?[0-9]+(\.[0-9]+)+$ ]]; then
+            echo "::error::Automatic mode only accepts numeric-version patched/* tags."
             exit 1
           fi
 
-          # Never overwrite an existing Release or its assets.
-          encoded_tag=$(jq -rn --arg value "$SOURCE_TAG" '$value | @uri')
-          status=$(curl --silent --show-error --output /tmp/release.json --write-out '%{http_code}' \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "Accept: application/vnd.github+json" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$encoded_tag")
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$SOURCE_TAG" >/dev/null; then
+            echo "::error::Source tag '$SOURCE_TAG' does not exist in this repository."
+            exit 1
+          fi
 
-          if [[ "$status" == "200" ]]; then
+          status=$(check_release "$SOURCE_TAG")
+          if [[ "$status" == 200 ]]; then
+            if [[ "$BUILD_MODE" == auto ]]; then
+              asset_names=$(jq -r '.assets[]?.name' /tmp/release.json)
+              if grep -qE '\.apk$' <<< "$asset_names" && grep -qx 'SHA256SUMS.txt' <<< "$asset_names"; then
+                echo "The selected tag was published by another run; skipping."
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              echo "::error::Release for '$SOURCE_TAG' exists but is incomplete; refusing to overwrite it."
+              exit 1
+            fi
             echo "::error::A GitHub Release for '$SOURCE_TAG' already exists. Existing releases are not overwritten."
             exit 1
-          elif [[ "$status" != "404" ]]; then
+          elif [[ "$status" != 404 ]]; then
             echo "::error::Could not safely check existing Release (GitHub API HTTP $status)."
             cat /tmp/release.json
             exit 1
@@ -72,14 +148,24 @@ jobs:
           git fetch --force origin "refs/tags/$SOURCE_TAG:refs/tags/$SOURCE_TAG"
           source_sha=$(git rev-parse "refs/tags/$SOURCE_TAG^{commit}")
           git checkout --detach "$source_sha"
+          tag_message=$(git for-each-ref --format='%(contents)' "refs/tags/$SOURCE_TAG")
+          base_commit=$(printf '%s\n' "$tag_message" | sed -n 's/^base-commit: //p' | head -n1)
+          patch_shas=$(printf '%s\n' "$tag_message" | sed -n 's/^patch-sha: //p' | paste -sd ', ' -)
 
+          echo "skip=false" >> "$GITHUB_OUTPUT"
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
           echo "short_sha=${source_sha:0:12}" >> "$GITHUB_OUTPUT"
           echo "tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
+          echo "base_commit=$base_commit" >> "$GITHUB_OUTPUT"
+          echo "patch_shas=$patch_shas" >> "$GITHUB_OUTPUT"
+          echo "mode=$BUILD_MODE" >> "$GITHUB_OUTPUT"
           echo "Source tag: $SOURCE_TAG"
           echo "Resolved commit: $source_sha"
+          [[ -z "$base_commit" ]] || echo "Original tag base commit: $base_commit"
+          [[ -z "$patch_shas" ]] || echo "Patch SHAs: $patch_shas"
 
       - name: Set up Java
+        if: steps.source.outputs.skip != 'true'
         uses: actions/setup-java@v5
         with:
           distribution: zulu
@@ -90,17 +176,20 @@ jobs:
             android/**/gradle-wrapper.properties
 
       - name: Install Flutter
+        if: steps.source.outputs.skip != 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
           cache: true
 
-      - name: Apply Android patches
+      - name: Apply Android build-stage patches
+        if: steps.source.outputs.skip != 'true'
         shell: pwsh
         run: lib/scripts/patch.ps1 android
 
       - name: Configure signing key (optional)
+        if: steps.source.outputs.skip != 'true'
         env:
           SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -122,8 +211,6 @@ jobs:
               exit 1
             }
 
-            # Java Properties values must not be wrapped in shell-style quotes:
-            # those quotes become part of the keystore path/password.
             {
               printf 'storeFile=key.jks\n'
               printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
@@ -132,21 +219,21 @@ jobs:
             } > android/key.properties
             echo "Signing configured from repository secrets."
           else
-            # Some older source tags contain key.properties pointing at a private
-            # keystore that is not available in this workflow. Remove that stale
-            # config so Gradle falls back to its debug signing config.
             rm -f android/key.properties android/app/key.jks
             echo "Signing secrets are not configured; using the project's debug signing configuration."
           fi
 
       - name: Set build version metadata
+        if: steps.source.outputs.skip != 'true'
         shell: pwsh
         run: lib/scripts/build.ps1 android
 
       - name: Build release APKs
+        if: steps.source.outputs.skip != 'true'
         run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --no-pub
 
       - name: Rename and verify APKs
+        if: steps.source.outputs.skip != 'true'
         id: artifacts
         shell: bash
         env:
@@ -174,7 +261,7 @@ jobs:
 
           if [[ -n "$BUILD_VERSION" ]]; then
             for file in PiliPlus_android_${GITHUB_RUN_NUMBER}_*.apk; do
-              abi=$(basename "$file" | sed -E "s/^PiliPlus_android_${GITHUB_RUN_NUMBER}_(.*)\\.apk$/\\1/")
+              abi=$(basename "$file" | sed -E "s/^PiliPlus_android_${GITHUB_RUN_NUMBER}_(.*)\\.apk$/\1/")
               case "$abi" in
                 arm64-v8a|armeabi-v7a|x86_64) ;;
                 *)
@@ -201,15 +288,26 @@ jobs:
           ls -lh "${final_apks[@]}" SHA256SUMS.txt
 
       - name: Prepare release notes
+        if: steps.source.outputs.skip != 'true'
         env:
           SOURCE_TAG: ${{ steps.source.outputs.tag }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          BASE_COMMIT: ${{ steps.source.outputs.base_commit }}
+          PATCH_SHAS: ${{ steps.source.outputs.patch_shas }}
+          BUILD_MODE: ${{ steps.source.outputs.mode }}
           SIGNING_CONFIGURED: ${{ secrets.SIGN_KEYSTORE_BASE64 != '' }}
         shell: bash
         run: |
           {
-            printf 'Android APKs built from source tag `%s`.\n\n' "$SOURCE_TAG"
-            printf -- '- Source commit: `%s`\n' "$SOURCE_SHA"
+            printf 'Android APKs built from source tag %s.\n\n' "$SOURCE_TAG"
+            printf -- '- Build mode: %s\n' "$BUILD_MODE"
+            printf -- '- Source commit: %s\n' "$SOURCE_SHA"
+            if [[ -n "$BASE_COMMIT" ]]; then
+              printf -- '- Original tag base commit: %s\n' "$BASE_COMMIT"
+            fi
+            if [[ -n "$PATCH_SHAS" ]]; then
+              printf -- '- Applied patch commit SHAs: %s\n' "$PATCH_SHAS"
+            fi
             printf -- '- Workflow run: %s\n' "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             printf '%s\n' '- APKs: split by Android ABI (arm64-v8a, armeabi-v7a, x86_64; available outputs are attached)'
             if [[ "$SIGNING_CONFIGURED" == "true" ]]; then
@@ -217,10 +315,11 @@ jobs:
             else
               printf '%s\n' '- Signing: repository signing keystore not configured'
             fi
-            printf '%s\n' '- SHA-256 checksums: see `SHA256SUMS.txt`'
+            printf '%s\n' '- SHA-256 checksums: see SHA256SUMS.txt'
           } > RELEASE_NOTES.md
 
       - name: Publish GitHub Release
+        if: steps.source.outputs.skip != 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.source.outputs.tag }}
@@ -233,6 +332,7 @@ jobs:
           token: ${{ github.token }}
 
       - name: Upload build artifacts
+        if: steps.source.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: build-diy-android-${{ steps.source.outputs.short_sha }}

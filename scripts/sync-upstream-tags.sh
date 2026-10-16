@@ -70,7 +70,7 @@ if [[ "$MODE" == audit ]]; then
       record "| $name | MISMATCH | Base commit provenance does not match original tag |"; bad=$((bad+1)); continue
     fi
     actual_subjects="$(git log --reverse --format='%s' "$base..$commit")"
-    expected_subjects="$(printf '%s\\n' "${patch_titles[@]}")"
+    expected_subjects="$(printf '%s\n' "${patch_titles[@]}")"
     if [[ "$actual_subjects" != "$expected_subjects" ]]; then
       record "| $name | MISMATCH | Actual ordered commit subjects between base and patched tag do not match the manifest |"
       bad=$((bad+1)); continue
@@ -100,7 +100,7 @@ record ""
 record "## Upstream Tag Sync"
 record "| Upstream tag | Original tag | Patched tag | Result |"
 record "|---|---|---|---|"
-success=0 failed_count=0 skipped=0 not_applicable=0
+success=0 failed_count=0 existing_skipped=0 would_create_count=0 not_applicable=0
 mapfile -t tags < <(git for-each-ref --format='%(refname)' refs/tags/upstream/ | sed 's#^refs/tags/upstream/##' | sort -Vu)
 for tag in "${tags[@]}"; do
   is_eligible "$tag" || continue
@@ -111,7 +111,7 @@ for tag in "${tags[@]}"; do
   elif git push origin "$source:$orig"; then orig_status=synced; remote_tags+=$'\n'"$orig"
   else record "| $tag | failed | not attempted | original tag push failed |"; failed_count=$((failed_count+1)); continue
   fi
-  if has_remote_tag "$patched_ref"; then record "| $tag | $orig_status | already exists | preserved; run audit mode |"; skipped=$((skipped+1)); continue; fi
+  if has_remote_tag "$patched_ref"; then record "| $tag | $orig_status | already exists | preserved; run audit mode |"; existing_skipped=$((existing_skipped+1)); continue; fi
   git checkout --detach "$base" >/dev/null
   applied=(); patch_failed=false
   for i in "${!patch_shas[@]}"; do
@@ -140,7 +140,7 @@ for tag in "${tags[@]}"; do
   done
   [[ "$patch_failed" == false ]] || continue
   [[ -n "$(git diff --name-only "$base" HEAD)" ]] || { record "| $tag | $orig_status | failed | final tree unchanged |"; failed_count=$((failed_count+1)); continue; }
-  if [[ "$DRY_RUN" == true ]]; then record "| $tag | $orig_status | would create | all patches applied in order (dry-run) |"; skipped=$((skipped+1)); continue; fi
+  if [[ "$DRY_RUN" == true ]]; then record "| $tag | $orig_status | would create | all patches applied in order (dry-run) |"; would_create_count=$((would_create_count+1)); continue; fi
   args=("$patched" HEAD -m "PiliPlus $tag with ordered patch manifest" -m "base-commit: $base")
   for sha in "${applied[@]}"; do args+=(-m "patch-sha: $sha"); done
   args+=(-m "generated-by: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
@@ -149,5 +149,5 @@ for tag in "${tags[@]}"; do
   else git tag -d "$patched" >/dev/null 2>&1 || true; record "| $tag | $orig_status | failed | push failed |"; failed_count=$((failed_count+1)); fi
 done
 record ""
-record "Created: $success; existing skipped: $skipped; not applicable: $not_applicable; failed: $failed_count"
+record "Created: $success; existing skipped: $existing_skipped; would create (dry-run): $would_create_count; not applicable: $not_applicable; failed: $failed_count"
 (( failed_count == 0 ))

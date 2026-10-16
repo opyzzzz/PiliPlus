@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: sync-upstream-tags
@@ -36,7 +37,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with:
-          ref: main-test
+          ref: main
           fetch-depth: 0
           persist-credentials: true
 
@@ -58,6 +59,16 @@ jobs:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         shell: bash
         run: bash scripts/sync-upstream-tags.sh
+
+      - name: Trigger automatic APK build scan
+        if: success() && (github.event_name == 'schedule' || (inputs.mode == 'sync' && inputs.dry_run != true))
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run build-diy.yml --ref main -f mode=auto
+          echo "Dispatched build-diy automatic scan on main."
 
       - name: Report failure
         if: failure() || cancelled()
