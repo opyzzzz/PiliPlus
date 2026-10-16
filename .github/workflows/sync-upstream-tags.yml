@@ -1,4 +1,4 @@
-name: Sync upstream tags
+name: 同步上游版本与补丁
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Run tag sync or audit existing patched tags"
+        description: "同步上游标签，或审计已发布的补丁标签"
         type: choice
         options:
           - sync
@@ -14,7 +14,7 @@ on:
         default: sync
         required: true
       dry_run:
-        description: "Dry run (do not push anything; sync mode only)"
+        description: "模拟运行；不推送任何标签（仅同步模式）"
         type: boolean
         default: false
 
@@ -28,31 +28,31 @@ concurrency:
 
 jobs:
   sync-tags:
-    name: Sync or audit upstream tags
+    name: 同步或审计上游标签
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       UPSTREAM_URL: https://github.com/bggRGjQaUbCoE/PiliPlus.git
     steps:
-      - name: Checkout repository
+      - name: 检出仓库
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with:
-          ref: main
+          ref: ${{ github.ref }}
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Configure Git
+      - name: 配置 Git 身份
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream "$UPSTREAM_URL"
 
-      - name: Validate sync script syntax
+      - name: 检查同步脚本语法
         shell: bash
         run: bash -n scripts/sync-upstream-tags.sh
 
-      - name: Sync or audit tags
+      - name: 同步或审计标签
         env:
           BASELINE_TAG: "2.1.6.2"
           MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'sync' }}
@@ -60,7 +60,24 @@ jobs:
         shell: bash
         run: bash scripts/sync-upstream-tags.sh
 
-      - name: Trigger automatic APK build scan
+      - name: 生成同步结果摘要
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo ""
+            echo "---"
+            echo "## 运行状态"
+            if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+              echo "本次为模拟运行，未推送标签。"
+            elif [[ "${{ inputs.mode }}" == "audit" ]]; then
+              echo "审计已完成；详细结果见上方审计列表。"
+            else
+              echo "同步流程已完成；详细结果见上方汇总。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 触发自动 APK 构建检查
         if: success() && (github.event_name == 'schedule' || (inputs.mode == 'sync' && inputs.dry_run != true))
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,14 +85,14 @@ jobs:
         run: |
           set -euo pipefail
           gh workflow run build-diy.yml --repo "$GITHUB_REPOSITORY" --ref main -f mode=auto
-          echo "Dispatched build-diy automatic scan on main."
+          echo "已触发 main 分支上的自动构建检查。"
 
-      - name: Report failure
+      - name: 汇总失败信息
         if: failure() || cancelled()
         shell: bash
         run: |
-          msg="Tag sync/audit failed. See job logs: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          echo "$msg" >&2
+          msg="同步或审计失败。请查看运行日志：$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "::error::$msg" >&2
           {
             echo ""
             echo "---"

@@ -1,10 +1,10 @@
-name: Build DIY Android
+name: 构建 Android 安装包
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Build a specified tag or automatically select the newest unpublished patched tag"
+        description: "手动指定标签，或自动选择最新的未发布补丁标签"
         required: true
         type: choice
         options:
@@ -12,7 +12,7 @@ on:
           - auto
         default: manual
       tag:
-        description: "Source tag for manual mode (for example: 2.1.6.2 or patched/2.1.6.2)"
+        description: "手动构建的来源标签，例如 2.1.6.2 或 patched/2.1.6.2"
         required: false
         type: string
 
@@ -25,20 +25,20 @@ concurrency:
 
 jobs:
   android:
-    name: Build Android from tag
+    name: 构建并发布 Android 安装包
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
       contents: write
 
     steps:
-      - name: Checkout workflow revision
+      - name: 检出工作流代码
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
-      - name: Select and validate source tag
+      - name: 选择并校验来源标签
         id: source
         env:
           BUILD_MODE: ${{ inputs.mode || 'manual' }}
@@ -67,7 +67,7 @@ jobs:
           fi
 
           if [[ "$BUILD_MODE" == auto ]]; then
-            echo "Automatic mode: scanning patched/* tags from newest to oldest."
+            echo "自动模式：按版本从新到旧检查 patched/* 标签。"
             mapfile -t candidates < <(
               git ls-remote --tags --refs origin 'refs/tags/patched/*' |
                 awk '{sub("refs/tags/", "", $2); print $2}' |
@@ -80,7 +80,7 @@ jobs:
               status=$(check_release "$candidate")
               if [[ "$status" == 404 ]]; then
                 SOURCE_TAG="$candidate"
-                echo "Selected unpublished patched tag: $SOURCE_TAG"
+                echo "已选择待发布补丁标签：$SOURCE_TAG"
                 break
               elif [[ "$status" == 200 ]]; then
                 asset_names=$(jq -r '.assets[]?.name' /tmp/release.json)
@@ -88,7 +88,7 @@ jobs:
                   echo "::error::Release for '$candidate' exists but is incomplete (requires at least one APK and SHA256SUMS.txt). Repair it manually before automatic publishing can continue."
                   exit 1
                 fi
-                echo "Already published completely; skipping candidate: $candidate"
+                echo "该版本已完整发布，跳过：$candidate"
               else
                 echo "::error::Could not safely check Release for '$candidate' (GitHub API HTTP $status)."
                 cat /tmp/release.json
@@ -99,7 +99,7 @@ jobs:
             if [[ -z "$SOURCE_TAG" ]]; then
               echo "No unpublished patched tags found; nothing to build."
               echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "No unpublished patched tags found." >> "$GITHUB_STEP_SUMMARY"
+              printf '## 无需构建\n\n未发现尚未发布的补丁版本，本次未执行构建。\n' >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
           else
@@ -111,7 +111,7 @@ jobs:
           fi
 
           if ! git check-ref-format "refs/tags/$SOURCE_TAG"; then
-            echo "::error::Invalid Git tag name: $SOURCE_TAG"
+            echo "::error::标签名称无效：$SOURCE_TAG"
             exit 1
           fi
 
@@ -121,7 +121,7 @@ jobs:
           fi
 
           if ! git ls-remote --exit-code --tags origin "refs/tags/$SOURCE_TAG" >/dev/null; then
-            echo "::error::Source tag '$SOURCE_TAG' does not exist in this repository."
+            echo "::error::仓库中不存在来源标签：$SOURCE_TAG"
             exit 1
           fi
 
@@ -130,14 +130,14 @@ jobs:
             if [[ "$BUILD_MODE" == auto ]]; then
               asset_names=$(jq -r '.assets[]?.name' /tmp/release.json)
               if grep -qE '\.apk$' <<< "$asset_names" && grep -qx 'SHA256SUMS.txt' <<< "$asset_names"; then
-                echo "The selected tag was published by another run; skipping."
+                echo "所选标签已由其他运行发布，跳过本次构建。"
                 echo "skip=true" >> "$GITHUB_OUTPUT"
                 exit 0
               fi
               echo "::error::Release for '$SOURCE_TAG' exists but is incomplete; refusing to overwrite it."
               exit 1
             fi
-            echo "::error::A GitHub Release for '$SOURCE_TAG' already exists. Existing releases are not overwritten."
+            echo "::error::标签 $SOURCE_TAG 已有 Release；为避免覆盖，不会重新发布。"
             exit 1
           elif [[ "$status" != 404 ]]; then
             echo "::error::Could not safely check existing Release (GitHub API HTTP $status)."
@@ -156,15 +156,18 @@ jobs:
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
           echo "short_sha=${source_sha:0:12}" >> "$GITHUB_OUTPUT"
           echo "tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
+          display_version="${SOURCE_TAG#patched/}"
+          display_version="${display_version#v}"
+          echo "release_name=PiliPlus ${display_version}（补丁版）" >> "$GITHUB_OUTPUT"
           echo "base_commit=$base_commit" >> "$GITHUB_OUTPUT"
           echo "patch_shas=$patch_shas" >> "$GITHUB_OUTPUT"
           echo "mode=$BUILD_MODE" >> "$GITHUB_OUTPUT"
-          echo "Source tag: $SOURCE_TAG"
-          echo "Resolved commit: $source_sha"
-          [[ -z "$base_commit" ]] || echo "Original tag base commit: $base_commit"
-          [[ -z "$patch_shas" ]] || echo "Patch SHAs: $patch_shas"
+          echo "来源标签：$SOURCE_TAG"
+          echo "来源提交：$source_sha"
+          [[ -z "$base_commit" ]] || echo "上游基础提交：$base_commit"
+          [[ -z "$patch_shas" ]] || echo "补丁提交：$patch_shas"
 
-      - name: Set up Java
+      - name: 配置 Java 环境
         if: steps.source.outputs.skip != 'true'
         uses: actions/setup-java@v5
         with:
@@ -175,7 +178,7 @@ jobs:
             android/*.gradle*
             android/**/gradle-wrapper.properties
 
-      - name: Install Flutter
+      - name: 安装 Flutter
         if: steps.source.outputs.skip != 'true'
         uses: subosito/flutter-action@v2
         with:
@@ -183,12 +186,12 @@ jobs:
           flutter-version-file: pubspec.yaml
           cache: true
 
-      - name: Apply Android build-stage patches
+      - name: 应用 Android 构建补丁
         if: steps.source.outputs.skip != 'true'
         shell: pwsh
         run: lib/scripts/patch.ps1 android
 
-      - name: Configure signing key (optional)
+      - name: 配置签名密钥（可选）
         if: steps.source.outputs.skip != 'true'
         env:
           SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
@@ -217,22 +220,22 @@ jobs:
               printf 'keyAlias=%s\n' "$KEY_ALIAS"
               printf 'keyPassword=%s\n' "$KEY_PASSWORD"
             } > android/key.properties
-            echo "Signing configured from repository secrets."
+            echo "已使用仓库密钥配置签名。"
           else
             rm -f android/key.properties android/app/key.jks
-            echo "Signing secrets are not configured; using the project's debug signing configuration."
+            echo "未配置签名密钥，将使用项目默认调试签名。"
           fi
 
-      - name: Set build version metadata
+      - name: 设置构建版本信息
         if: steps.source.outputs.skip != 'true'
         shell: pwsh
         run: lib/scripts/build.ps1 android
 
-      - name: Build release APKs
+      - name: 构建 Release APK
         if: steps.source.outputs.skip != 'true'
         run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --no-pub
 
-      - name: Rename and verify APKs
+      - name: 整理并校验安装包
         if: steps.source.outputs.skip != 'true'
         id: artifacts
         shell: bash
@@ -243,7 +246,7 @@ jobs:
           shopt -s nullglob
           apks=(build/app/outputs/flutter-apk/app-*-release.apk)
           if (( ${#apks[@]} == 0 )); then
-            echo "::error::Flutter produced no split APK files."
+            echo "::error::Flutter 未生成 ABI 拆分安装包。"
             exit 1
           fi
 
@@ -252,7 +255,7 @@ jobs:
             case "$abi" in
               arm64-v8a|armeabi-v7a|x86_64) ;;
               *)
-                echo "::error::Unexpected APK ABI filename: $file"
+                echo "::error::安装包文件名包含不支持的 ABI：$file"
                 exit 1
                 ;;
             esac
@@ -265,29 +268,31 @@ jobs:
               case "$abi" in
                 arm64-v8a|armeabi-v7a|x86_64) ;;
                 *)
-                  echo "::error::Unexpected intermediate APK filename: $file"
+                  echo "::error::中间安装包文件名包含不支持的 ABI：$file"
                   exit 1
                   ;;
               esac
               mv "$file" "PiliPlus_android_${BUILD_VERSION}_${abi}.apk"
             done
           else
-            echo "::error::Build version was not exported by lib/scripts/build.ps1."
+            echo "::error::lib/scripts/build.ps1 未输出构建版本号。"
             exit 1
           fi
 
           final_apks=(PiliPlus_android_*.apk)
-          if (( ${#final_apks[@]} == 0 )); then
-            echo "::error::APK renaming did not produce release assets."
+          if (( ${#final_apks[@]} != 3 )); then
+            echo "::error::预期生成 3 个 ABI 安装包（ARM64、ARMv7、x86_64），实际为 ${#final_apks[@]} 个。"
             exit 1
           fi
 
+          for file in "${final_apks[@]}"; do unzip -t "$file" >/dev/null; done
           sha256sum "${final_apks[@]}" > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
           echo "count=${#final_apks[@]}" >> "$GITHUB_OUTPUT"
           printf 'Verified APK files:\n'
           ls -lh "${final_apks[@]}" SHA256SUMS.txt
 
-      - name: Prepare release notes
+      - name: 生成中文发布说明
         if: steps.source.outputs.skip != 'true'
         env:
           SOURCE_TAG: ${{ steps.source.outputs.tag }}
@@ -298,32 +303,32 @@ jobs:
           SIGNING_CONFIGURED: ${{ secrets.SIGN_KEYSTORE_BASE64 != '' }}
         shell: bash
         run: |
+          version="${SOURCE_TAG#patched/}"
+          version="${version#v}"
           {
-            printf 'Android APKs built from source tag %s.\n\n' "$SOURCE_TAG"
-            printf -- '- Build mode: %s\n' "$BUILD_MODE"
-            printf -- '- Source commit: %s\n' "$SOURCE_SHA"
-            if [[ -n "$BASE_COMMIT" ]]; then
-              printf -- '- Original tag base commit: %s\n' "$BASE_COMMIT"
-            fi
-            if [[ -n "$PATCH_SHAS" ]]; then
-              printf -- '- Applied patch commit SHAs: %s\n' "$PATCH_SHAS"
-            fi
-            printf -- '- Workflow run: %s\n' "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            printf '%s\n' '- APKs: split by Android ABI (arm64-v8a, armeabi-v7a, x86_64; available outputs are attached)'
-            if [[ "$SIGNING_CONFIGURED" == "true" ]]; then
-              printf '%s\n' '- Signing: repository signing keystore configured'
-            else
-              printf '%s\n' '- Signing: repository signing keystore not configured'
-            fi
-            printf '%s\n' '- SHA-256 checksums: see SHA256SUMS.txt'
+            printf '# PiliPlus %s（补丁版）\n\n' "$version"
+            printf '## 版本说明\n\n基于补丁标签 `%s` 构建。\n\n' "$SOURCE_TAG"
+            printf '## 安装包\n\n'
+            printf -- '- **ARM64**：`PiliPlus_android_*_arm64-v8a.apk`\n'
+            printf -- '- **ARMv7**：`PiliPlus_android_*_armeabi-v7a.apk`\n'
+            printf -- '- **x86_64**：`PiliPlus_android_*_x86_64.apk`\n\n'
+            printf '请根据设备 CPU 架构选择对应安装包。\n\n'
+            printf '## 构建信息\n\n'
+            printf -- '- 来源提交：`%s`\n' "$SOURCE_SHA"
+            if [[ -n "$BASE_COMMIT" ]]; then printf -- '- 上游基础提交：`%s`\n' "$BASE_COMMIT"; fi
+            if [[ -n "$PATCH_SHAS" ]]; then printf -- '- 补丁提交：`%s`\n' "$PATCH_SHAS"; fi
+            printf -- '- 构建模式：%s\n' "$BUILD_MODE"
+            printf -- '- 签名：%s\n' "$([[ "$SIGNING_CONFIGURED" == "true" ]] && echo '已配置仓库签名密钥' || echo '未配置仓库签名密钥；使用项目默认调试签名')"
+            printf -- '- 校验文件：`SHA256SUMS.txt`（SHA-256）\n'
+            printf -- '- 构建日志：[查看本次 Actions 运行](%s/%s/actions/runs/%s)\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
           } > RELEASE_NOTES.md
 
-      - name: Publish GitHub Release
+      - name: 发布 GitHub Release
         if: steps.source.outputs.skip != 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.source.outputs.tag }}
-          name: ${{ steps.source.outputs.tag }}
+          name: ${{ steps.source.outputs.release_name }}
           body_path: RELEASE_NOTES.md
           files: |
             PiliPlus_android_*.apk
@@ -331,7 +336,7 @@ jobs:
           fail_on_unmatched_files: true
           token: ${{ github.token }}
 
-      - name: Upload build artifacts
+      - name: 上传构建产物
         if: steps.source.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
@@ -340,3 +345,66 @@ jobs:
             PiliPlus_android_*.apk
             SHA256SUMS.txt
           if-no-files-found: error
+
+      - name: 验证发布结果并生成中文摘要
+        if: steps.source.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_TAG: ${{ steps.source.outputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          APK_COUNT: ${{ steps.artifacts.outputs.count }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          encoded_tag="$(jq -rn --arg value "$SOURCE_TAG" '$value | @uri')"
+          status="$(curl --silent --show-error --output /tmp/release-verify.json --write-out '%{http_code}' \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$encoded_tag")"
+          if [[ "$status" != 200 ]]; then
+            echo "::error::发布后校验失败：GitHub API 返回 HTTP $status。"
+            cat /tmp/release-verify.json
+            exit 1
+          fi
+          release_url="$(jq -r '.html_url // empty' /tmp/release-verify.json)"
+          asset_names="$(jq -r '.assets[].name' /tmp/release-verify.json)"
+          for required in SHA256SUMS.txt; do
+            grep -qxF "$required" <<< "$asset_names" || { echo "::error::发布缺少必需文件：$required"; exit 1; }
+          done
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            grep -qE "^PiliPlus_android_.+_${abi}\.apk$" <<< "$asset_names" || {
+              echo "::error::发布缺少 ABI 安装包：$abi"
+              exit 1
+            }
+          done
+          {
+            echo "## 构建与发布结果"
+            echo ""
+            echo "**状态：已完成**"
+            echo ""
+            echo "- **版本：** `$SOURCE_TAG`"
+            echo "- **安装包：** $APK_COUNT 个（ARM64、ARMv7、x86_64）"
+            echo "- **完整性：** APK ZIP 检查及 SHA-256 校验通过"
+            echo "- **来源提交：** `$SOURCE_SHA`"
+            echo "- **发布页面：** [查看并下载安装包]($release_url)"
+            echo "- **校验文件：** `SHA256SUMS.txt`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 汇总构建失败
+        if: failure() || cancelled()
+        env:
+          INPUT_TAG: ${{ inputs.tag || '自动选择' }}
+        shell: bash
+        run: |
+          {
+            echo ""
+            echo "---"
+            echo "## 构建结果"
+            echo ""
+            echo "**状态：失败或已取消**"
+            echo ""
+            echo "- **版本：** `$INPUT_TAG`"
+            echo "- **运行日志：** [查看本次 Actions 运行]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+            echo "- 如失败发生在发布后校验阶段，请检查 Release 是否缺少安装包或 `SHA256SUMS.txt`。"
+          } >> "$GITHUB_STEP_SUMMARY"
