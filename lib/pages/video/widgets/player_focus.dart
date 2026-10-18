@@ -144,6 +144,8 @@ class PlayerFocus extends StatelessWidget {
       return true;
     }
 
+    if (ShortcutService.consumeComboContinuation(event)) return true;
+
     if (event is KeyDownEvent) {
       final comboId = ShortcutService.matchCombo(event);
       if (comboId != null) {
@@ -188,7 +190,7 @@ class PlayerFocus extends StatelessWidget {
 
     switch (action) {
       case ShortcutAction.playPause:
-        if ((plPlayerController.isLive || canPlay!()) && hasPlayer) {
+        if ((plPlayerController.isLive || (canPlay?.call() ?? false)) && hasPlayer) {
           plPlayerController.onDoubleTapCenter();
         }
         return true;
@@ -325,10 +327,12 @@ class PlayerFocus extends StatelessWidget {
         return true;
 
       case ShortcutAction.likeTriple:
+        final intro = introController;
+        if (intro == null) return true;
         if (event is KeyDownEvent) {
-          introController!.onStartTriple();
+          intro.onStartTriple();
         } else if (event is KeyUpEvent) {
-          introController!.onCancelTriple(true);
+          intro.onCancelTriple(true);
         }
         return true;
 

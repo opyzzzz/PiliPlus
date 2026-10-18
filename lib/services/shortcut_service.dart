@@ -4,7 +4,13 @@ import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart'
-    show HardwareKeyboard, KeyEvent, LogicalKeyboardKey;
+    show
+        HardwareKeyboard,
+        KeyDownEvent,
+        KeyEvent,
+        KeyRepeatEvent,
+        KeyUpEvent,
+        LogicalKeyboardKey;
 
 /// 播放器快捷键：自定义绑定的存取、按键匹配与跨平台显示。
 ///
@@ -56,6 +62,7 @@ abstract final class ShortcutService {
   static const List<String> comboIds = ['A', 'B', 'C'];
   static final Map<String, int> _comboIndexes = {};
   static final Map<String, List<String>> _comboSnapshots = {};
+  static final Set<LogicalKeyboardKey> _activeComboKeys = {};
 
   static String _comboBindingKey(String id) => 'combo$id.binding';
   static String _comboActionsKey(String id) => 'combo$id.actions';
@@ -104,11 +111,43 @@ abstract final class ShortcutService {
     Pref.customKeyBindings = map;
   }
 
-  /// 返回匹配的组合 ID；只由 KeyDown 事件调用。
+  /// 吞掉组合快捷键的重复与释放事件，防止修饰键在按住主键期间松开后，
+  /// 同一个按键的 KeyRepeat/KeyUp 被普通快捷键再次匹配。
+  static bool consumeComboContinuation(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      // Flutter 用 KeyRepeatEvent 表示长按重复；若窗口失焦导致上次 KeyUp 丢失，
+      // 新的 KeyDown 应视为下一次独立敲击，而不是沿用旧状态。
+      _activeComboKeys.remove(event.logicalKey);
+      return false;
+    }
+    if (!_activeComboKeys.contains(event.logicalKey)) return false;
+    if (event is KeyUpEvent) _activeComboKeys.remove(event.logicalKey);
+    return true;
+  }
+
+  /// 返回匹配的组合 ID；只由 KeyDown 事件调用，并记录该次按键的生命周期。
   static String? matchCombo(KeyEvent event) {
+    if (event is! KeyDownEvent) return null;
     final binding = currentBinding(event.logicalKey);
     for (final id in comboIds) {
-      if (comboBindingOf(id) == binding) return id;
+      if (comboBindingOf(id) == binding) {
+        _activeComboKeys.add(event.logicalKey);
+        return id;
+      }
+    }
+    return null;
+  }
+
+  /// Meta+Q / Meta+R 被播放器保留，不能作为自定义快捷键。
+  static String? reservedBindingConflict(KeyBinding binding) {
+    if (!binding.meta) return null;
+    if (binding.key == LogicalKeyboardKey.keyQ) {
+      return Platform.isMacOS
+          ? '系统保留快捷键（Cmd+Q 退出应用）'
+          : '系统保留快捷键（Meta+Q）';
+    }
+    if (binding.key == LogicalKeyboardKey.keyR) {
+      return '系统保留快捷键（Meta+R）';
     }
     return null;
   }
@@ -149,6 +188,8 @@ abstract final class ShortcutService {
 
   /// 组合绑定不能与普通快捷键或其他组合绑定重叠。
   static String? comboBindingConflictOf(String id, KeyBinding binding) {
+    final reserved = reservedBindingConflict(binding);
+    if (reserved != null) return reserved;
     for (final action in ShortcutAction.values) {
       if (action.desktopOnly && !PlatformUtils.isDesktop) continue;
       if (bindingOf(action) == binding) return action.title;
@@ -229,6 +270,7 @@ abstract final class ShortcutService {
     Pref.customKeyBindings = map;
     _comboIndexes.clear();
     _comboSnapshots.clear();
+    _activeComboKeys.clear();
   }
 
   // ── 显示 ────────────────────────────────────────────────────────────────

@@ -180,6 +180,11 @@ class _CaptureContentState extends State<_CaptureContent> {
       return KeyEventResult.handled;
     }
     final binding = ShortcutService.currentBinding(key);
+    final reservedConflict = ShortcutService.reservedBindingConflict(binding);
+    if (reservedConflict != null) {
+      setState(() => _error = reservedConflict);
+      return KeyEventResult.handled;
+    }
     final conflict = ShortcutService.conflictOf(widget.action, binding);
     final comboConflict = ShortcutService.bindingConflictWithCombo(
       widget.action,
