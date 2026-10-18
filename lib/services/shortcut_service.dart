@@ -315,6 +315,7 @@ abstract final class ShortcutService {
     LogicalKeyboardKey.space: '空格',
     LogicalKeyboardKey.enter: '回车',
     LogicalKeyboardKey.escape: 'Esc',
+    LogicalKeyboardKey.goBack: '返回',
     LogicalKeyboardKey.tab: 'Tab',
     LogicalKeyboardKey.arrowUp: '↑',
     LogicalKeyboardKey.arrowDown: '↓',

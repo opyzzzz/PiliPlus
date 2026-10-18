@@ -175,10 +175,6 @@ class _CaptureContentState extends State<_CaptureContent> {
     if (event is! KeyDownEvent) {
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.escape) {
-      Get.back();
-      return KeyEventResult.handled;
-    }
     final binding = ShortcutService.currentBinding(key);
     final reservedConflict = ShortcutService.reservedBindingConflict(binding);
     if (reservedConflict != null) {
@@ -269,10 +265,6 @@ class _ComboDialogState extends State<_ComboDialog> {
       return KeyEventResult.handled;
     }
     if (event is! KeyDownEvent) return KeyEventResult.handled;
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
-      setState(() => _capturing = false);
-      return KeyEventResult.handled;
-    }
     final binding = ShortcutService.currentBinding(event.logicalKey);
     final conflict = ShortcutService.comboBindingConflictOf(widget.id, binding);
     if (conflict != null) {
@@ -314,10 +306,10 @@ class _ComboDialogState extends State<_ComboDialog> {
             const SizedBox(height: 8),
             OutlinedButton(
               onPressed: () => setState(() {
-                _capturing = true;
+                _capturing = !_capturing;
                 _error = null;
               }),
-              child: Text(_capturing ? '请按下新的组合键…' : '设置触发键'),
+              child: Text(_capturing ? '停止录入' : '设置触发键'),
             ),
             if (_capturing)
               Focus(
@@ -326,7 +318,7 @@ class _ComboDialogState extends State<_ComboDialog> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
-                    '按 Esc 取消；当前修饰键：${ShortcutService.currentModifiersLabel()}',
+                    '按下 Esc 或返回键也可作为触发键；当前修饰键：${ShortcutService.currentModifiersLabel()}',
                   ),
                 ),
               ),
