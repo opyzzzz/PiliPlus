@@ -2,6 +2,8 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
 import 'package:PiliPlus/services/shortcut_service.dart';
+import 'package:PiliPlus/services/media_key_shortcut_bridge.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/services.dart'
@@ -23,6 +25,7 @@ final List<SettingsModel> shortcutSettings = [
     leading: Icon(Icons.volume_up_outlined),
     setKey: SettingBoxKey.allowMediaKeyShortcuts,
     defaultVal: false,
+    onChanged: MediaKeyShortcutBridge.setEnabled,
   ),
   const SwitchModel(
     title: '启用键盘控制',
@@ -65,6 +68,7 @@ Future<void> _showComboDialog(
   String id,
   VoidCallback setState,
 ) async {
+  await MediaKeyShortcutBridge.setEnabled(Pref.allowMediaKeyShortcuts);
   final changed = await showDialog<bool>(
     context: context,
     builder: (context) => _ComboDialog(id: id),
@@ -84,13 +88,19 @@ Future<void> _showCaptureDialog(
   ShortcutAction action,
   VoidCallback setState,
 ) async {
-  final changed = await showDialog<bool>(
-    context: context,
-    builder: (context) => _CaptureDialog(action: action),
-  );
-  if (changed == true) {
-    setState();
+  await MediaKeyShortcutBridge.setEnabled(Pref.allowMediaKeyShortcuts);
+  await MediaKeyShortcutBridge.setCapturing(true);
+  bool? changed;
+  try {
+    changed = await showDialog<bool>(
+      context: context,
+      builder: (context) => _CaptureDialog(action: action),
+    );
+  } finally {
+    await MediaKeyShortcutBridge.setCapturing(false);
+    await MediaKeyShortcutBridge.sync();
   }
+  if (changed == true) setState();
 }
 
 void _resetAll(BuildContext context, VoidCallback setState) {
@@ -111,6 +121,7 @@ void _resetAll(BuildContext context, VoidCallback setState) {
         TextButton(
           onPressed: () {
             ShortcutService.resetAll();
+            MediaKeyShortcutBridge.sync();
             Get.back();
             setState();
             SmartDialog.showToast('全部快捷键已设为未绑定');
@@ -138,6 +149,7 @@ class _CaptureDialog extends StatelessWidget {
         TextButton(
           onPressed: () {
             ShortcutService.resetBinding(action);
+            MediaKeyShortcutBridge.sync();
             Get.back(result: true);
           },
           child: Text(
@@ -148,6 +160,7 @@ class _CaptureDialog extends StatelessWidget {
         TextButton(
           onPressed: () {
             ShortcutService.clearBinding(action);
+            MediaKeyShortcutBridge.sync();
             Get.back(result: true);
           },
           child: Text('清除绑定', style: TextStyle(color: theme.colorScheme.error)),
@@ -203,6 +216,7 @@ class _CaptureContentState extends State<_CaptureContent> {
       return KeyEventResult.handled;
     }
     ShortcutService.setBinding(widget.action, binding);
+    MediaKeyShortcutBridge.sync();
     SmartDialog.showToast('已保存');
     Get.back(result: true);
     return KeyEventResult.handled;
@@ -295,9 +309,17 @@ class _ComboDialogState extends State<_ComboDialog> {
   }
 
   void _save() {
+    MediaKeyShortcutBridge.setCapturing(false);
     ShortcutService.setComboBinding(widget.id, _binding);
     ShortcutService.setComboActions(widget.id, _actions);
+    MediaKeyShortcutBridge.sync();
     Get.back(result: true);
+  }
+
+  @override
+  void dispose() {
+    MediaKeyShortcutBridge.setCapturing(false);
+    super.dispose();
   }
 
   @override
