@@ -52,6 +52,125 @@ abstract final class ShortcutService {
     return null;
   }
 
+
+  static const List<String> comboIds = ['A', 'B', 'C'];
+  static final Map<String, int> _comboIndexes = {};
+  static final Map<String, List<String>> _comboSnapshots = {};
+
+  static String _comboBindingKey(String id) => 'combo$id.binding';
+  static String _comboActionsKey(String id) => 'combo$id.actions';
+
+  /// 组合快捷键默认未绑定；动作序列与触发键分别持久化。
+  static KeyBinding? comboBindingOf(String id) {
+    if (!comboIds.contains(id)) return null;
+    final raw = Pref.customKeyBindings[_comboBindingKey(id)];
+    if (raw == null || raw == 'none') return null;
+    return KeyBinding.fromJson(raw);
+  }
+
+  static List<ShortcutAction> comboActionsOf(String id) {
+    if (!comboIds.contains(id)) return const [];
+    final raw = Pref.customKeyBindings[_comboActionsKey(id)];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<String>()
+        .map((name) {
+          for (final action in ShortcutAction.values) {
+            if (action.name == name) return action;
+          }
+          return null;
+        })
+        .whereType<ShortcutAction>()
+        .where((action) => !action.isHold)
+        .toList(growable: false);
+  }
+
+  static void setComboBinding(String id, KeyBinding? binding) {
+    if (!comboIds.contains(id)) return;
+    final map = Pref.customKeyBindings;
+    map[_comboBindingKey(id)] = binding?.toJson() ?? 'none';
+    Pref.customKeyBindings = map;
+  }
+
+  static void setComboActions(String id, List<ShortcutAction> actions) {
+    if (!comboIds.contains(id)) return;
+    final map = Pref.customKeyBindings;
+    map[_comboActionsKey(id)] = actions
+        .where((action) => !action.isHold)
+        .map((action) => action.name)
+        .toList(growable: false);
+    _comboIndexes.remove(id);
+    _comboSnapshots.remove(id);
+    Pref.customKeyBindings = map;
+  }
+
+  /// 返回匹配的组合 ID；只由 KeyDown 事件调用。
+  static String? matchCombo(KeyEvent event) {
+    final binding = currentBinding(event.logicalKey);
+    for (final id in comboIds) {
+      if (comboBindingOf(id) == binding) return id;
+    }
+    return null;
+  }
+
+  /// 组合键按顺序循环执行。索引只保存在内存；动作列表变化时自动归零。
+  static ShortcutAction? nextComboAction(String id, {required bool isLive}) {
+    final actions = comboActionsOf(id);
+    if (actions.isEmpty) {
+      _comboIndexes[id] = 0;
+      _comboSnapshots[id] = const [];
+      return null;
+    }
+    final snapshot = actions.map((action) => action.name).toList(growable: false);
+    if (!_sameNames(_comboSnapshots[id], snapshot)) {
+      _comboSnapshots[id] = snapshot;
+      _comboIndexes[id] = 0;
+    }
+    var index = _comboIndexes[id] ?? 0;
+    for (var checked = 0; checked < actions.length; checked++) {
+      final action = actions[index % actions.length];
+      index = (index + 1) % actions.length;
+      if (!action.context.applies(isLive)) continue;
+      if (action.desktopOnly && !PlatformUtils.isDesktop) continue;
+      _comboIndexes[id] = index;
+      return action;
+    }
+    _comboIndexes[id] = index;
+    return null;
+  }
+
+  static bool _sameNames(List<String>? a, List<String> b) {
+    if (a == null || a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  /// 组合绑定不能与普通快捷键或其他组合绑定重叠。
+  static String? comboBindingConflictOf(String id, KeyBinding binding) {
+    for (final action in ShortcutAction.values) {
+      if (action.desktopOnly && !PlatformUtils.isDesktop) continue;
+      if (bindingOf(action) == binding) return action.title;
+    }
+    for (final otherId in comboIds) {
+      if (otherId != id && comboBindingOf(otherId) == binding) {
+        return '组合 $otherId';
+      }
+    }
+    return null;
+  }
+
+  static String? bindingConflictWithCombo(
+    ShortcutAction action,
+    KeyBinding binding,
+  ) {
+    for (final id in comboIds) {
+      if (comboBindingOf(id) == binding) return '组合 $id';
+    }
+    return null;
+  }
+
   static KeyBinding currentBinding(LogicalKeyboardKey key) {
     final hw = HardwareKeyboard.instance;
     return KeyBinding(
@@ -98,9 +217,18 @@ abstract final class ShortcutService {
     Pref.customKeyBindings = map;
   }
 
-  /// 恢复全部默认
+  /// 将全部快捷键触发键设为未绑定，保留组合动作序列。
   static void resetAll() {
-    Pref.customKeyBindings = <String, dynamic>{};
+    final map = Pref.customKeyBindings;
+    for (final action in ShortcutAction.values) {
+      map[action.name] = 'none';
+    }
+    for (final id in comboIds) {
+      map[_comboBindingKey(id)] = 'none';
+    }
+    Pref.customKeyBindings = map;
+    _comboIndexes.clear();
+    _comboSnapshots.clear();
   }
 
   // ── 显示 ────────────────────────────────────────────────────────────────

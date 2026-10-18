@@ -144,6 +144,20 @@ class PlayerFocus extends StatelessWidget {
       return true;
     }
 
+    if (event is KeyDownEvent) {
+      final comboId = ShortcutService.matchCombo(event);
+      if (comboId != null) {
+        final comboAction = ShortcutService.nextComboAction(
+          comboId,
+          isLive: plPlayerController.isLive,
+        );
+        if (comboAction != null) {
+          _dispatch(context, comboAction, event);
+        }
+        return true;
+      }
+    }
+
     final action = ShortcutService.matchAction(
       event,
       isLive: plPlayerController.isLive,

@@ -11,6 +11,12 @@ import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
 final List<SettingsModel> shortcutSettings = [
+  const NormalModel(
+    leading: Icon(Icons.restart_alt_outlined),
+    title: '恢复全部默认',
+    subtitle: '将所有快捷键设为未绑定，保留组合动作列表',
+    onTap: _resetAll,
+  ),
   const SwitchModel(
     title: '启用键盘控制',
     subtitle: '在播放页启用键盘快捷键',
@@ -18,6 +24,13 @@ final List<SettingsModel> shortcutSettings = [
     setKey: SettingBoxKey.keyboardControl,
     defaultVal: true,
   ),
+  for (final id in ShortcutService.comboIds)
+    NormalModel(
+      leading: const Icon(Icons.keyboard_outlined),
+      title: '组合快捷键 $id',
+      getSubtitle: () => _comboLabel(id),
+      onTap: (context, setState) => _showComboDialog(context, id, setState),
+    ),
   for (final action in ShortcutAction.values)
     if (!action.desktopOnly || PlatformUtils.isDesktop)
       NormalModel(
@@ -28,13 +41,29 @@ final List<SettingsModel> shortcutSettings = [
           _showCaptureDialog(context, action, setState);
         },
       ),
-  const NormalModel(
-    leading: Icon(Icons.restart_alt_outlined),
-    title: '恢复全部默认',
-    subtitle: '清除全部自定义按键绑定',
-    onTap: _resetAll,
-  ),
 ];
+
+String _comboLabel(String id) {
+  final binding = ShortcutService.formatBinding(
+    ShortcutService.comboBindingOf(id),
+  );
+  final actions = ShortcutService.comboActionsOf(id)
+      .map((action) => action.title)
+      .join(' → ');
+  return '$binding · ${actions.isEmpty ? '未设置动作' : actions}';
+}
+
+Future<void> _showComboDialog(
+  BuildContext context,
+  String id,
+  VoidCallback setState,
+) async {
+  final changed = await showDialog<bool>(
+    context: context,
+    builder: (context) => _ComboDialog(id: id),
+  );
+  if (changed == true) setState();
+}
 
 String _bindingLabel(ShortcutAction action) {
   final text = ShortcutService.formatBinding(
@@ -63,7 +92,7 @@ void _resetAll(BuildContext context, VoidCallback setState) {
     builder: (context) => AlertDialog(
       constraints: Style.dialogFixedConstraints,
       title: const Text('恢复全部默认'),
-      content: const Text('将清除全部自定义按键绑定，恢复默认键位，确定吗？'),
+      content: const Text('将所有普通快捷键和组合快捷键的触发键设为未绑定；组合动作列表会保留。确定继续吗？'),
       actions: [
         TextButton(
           onPressed: Get.back,
@@ -77,7 +106,7 @@ void _resetAll(BuildContext context, VoidCallback setState) {
             ShortcutService.resetAll();
             Get.back();
             setState();
-            SmartDialog.showToast('已恢复全部默认');
+            SmartDialog.showToast('全部快捷键已设为未绑定');
           },
           child: const Text('确定'),
         ),
@@ -152,8 +181,13 @@ class _CaptureContentState extends State<_CaptureContent> {
     }
     final binding = ShortcutService.currentBinding(key);
     final conflict = ShortcutService.conflictOf(widget.action, binding);
-    if (conflict != null) {
-      setState(() => _error = '与「${conflict.title}」冲突，请换一个键');
+    final comboConflict = ShortcutService.bindingConflictWithCombo(
+      widget.action,
+      binding,
+    );
+    if (conflict != null || comboConflict != null) {
+      setState(() => _error =
+          '与「${conflict?.title ?? comboConflict}」冲突，请换一个键');
       return KeyEventResult.handled;
     }
     ShortcutService.setBinding(widget.action, binding);
@@ -194,6 +228,187 @@ class _CaptureContentState extends State<_CaptureContent> {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+class _ComboDialog extends StatefulWidget {
+  const _ComboDialog({required this.id});
+  final String id;
+  @override
+  State<_ComboDialog> createState() => _ComboDialogState();
+}
+
+class _ComboDialogState extends State<_ComboDialog> {
+  late List<ShortcutAction> _actions;
+  late KeyBinding? _binding;
+  ShortcutAction? _selected;
+  String? _error;
+  bool _capturing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _actions = ShortcutService.comboActionsOf(widget.id).toList();
+    _binding = ShortcutService.comboBindingOf(widget.id);
+    _selected = ShortcutAction.values.firstWhere(
+      (action) => !action.isHold,
+      orElse: () => ShortcutAction.playPause,
+    );
+  }
+
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (ShortcutService.isModifier(event.logicalKey)) {
+      if (event is KeyDownEvent || event is KeyUpEvent) setState(() {});
+      return KeyEventResult.handled;
+    }
+    if (event is! KeyDownEvent) return KeyEventResult.handled;
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      setState(() => _capturing = false);
+      return KeyEventResult.handled;
+    }
+    final binding = ShortcutService.currentBinding(event.logicalKey);
+    final conflict = ShortcutService.comboBindingConflictOf(widget.id, binding);
+    if (conflict != null) {
+      setState(() => _error = '与「$conflict」冲突，请换一个键');
+      return KeyEventResult.handled;
+    }
+    setState(() {
+      _binding = binding;
+      _capturing = false;
+      _error = null;
+    });
+    return KeyEventResult.handled;
+  }
+
+  void _save() {
+    ShortcutService
+      ..setComboBinding(widget.id, _binding)
+      ..setComboActions(widget.id, _actions);
+    Get.back(result: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final binding = ShortcutService.formatBinding(_binding);
+    final candidates = ShortcutAction.values
+        .where((action) => !action.isHold)
+        .where((action) => !action.desktopOnly || PlatformUtils.isDesktop)
+        .toList(growable: false);
+    return AlertDialog(
+      constraints: Style.dialogFixedConstraints,
+      title: Text('组合快捷键 ${widget.id}'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('触发键：$binding'),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => setState(() {
+                _capturing = true;
+                _error = null;
+              }),
+              child: Text(_capturing ? '请按下新的组合键…' : '设置触发键'),
+            ),
+            if (_capturing)
+              Focus(
+                autofocus: true,
+                onKeyEvent: _onKeyEvent,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    '按 Esc 取消；当前修饰键：${ShortcutService.currentModifiersLabel()}',
+                  ),
+                ),
+              ),
+            if (_error != null)
+              Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+            const Divider(),
+            const Text('按顺序循环执行（不支持长按型动作）'),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButton<ShortcutAction>(
+                    isExpanded: true,
+                    value: _selected,
+                    items: candidates
+                        .map((action) => DropdownMenuItem<ShortcutAction>(
+                              value: action,
+                              child: Text(action.title, overflow: TextOverflow.ellipsis),
+                            ))
+                        .toList(growable: false),
+                    onChanged: (action) => setState(() => _selected = action),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '添加动作',
+                  onPressed: _selected == null
+                      ? null
+                      : () => setState(() => _actions.add(_selected!)),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            if (_actions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('尚未添加动作；此组合键不会执行任何操作。'),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _actions.length,
+                  itemBuilder: (context, index) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('${index + 1}. ${_actions[index].title}'),
+                    leading: IconButton(
+                      tooltip: '上移',
+                      onPressed: index == 0 ? null : () => setState(() {
+                        final item = _actions.removeAt(index);
+                        _actions.insert(index - 1, item);
+                      }),
+                      icon: const Icon(Icons.arrow_upward),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: '下移',
+                          onPressed: index == _actions.length - 1 ? null : () => setState(() {
+                            final item = _actions.removeAt(index);
+                            _actions.insert(index + 1, item);
+                          }),
+                          icon: const Icon(Icons.arrow_downward),
+                        ),
+                        IconButton(
+                          tooltip: '删除动作',
+                          onPressed: () => setState(() => _actions.removeAt(index)),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => setState(() => _binding = null),
+          child: const Text('清除触发键'),
+        ),
+        TextButton(onPressed: Get.back, child: const Text('取消')),
+        TextButton(onPressed: _save, child: const Text('保存')),
+      ],
     );
   }
 }
