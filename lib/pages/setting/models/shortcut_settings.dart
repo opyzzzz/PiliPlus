@@ -113,6 +113,7 @@ void _resetAll(BuildContext context, VoidCallback setState) {
         TextButton(
           onPressed: () {
             ShortcutService.resetAll();
+            MediaKeyShortcutBridge.sync();
             Get.back();
             setState();
             SmartDialog.showToast('全部快捷键已设为未绑定');
@@ -140,6 +141,7 @@ class _CaptureDialog extends StatelessWidget {
         TextButton(
           onPressed: () {
             ShortcutService.resetBinding(action);
+            MediaKeyShortcutBridge.sync();
             Get.back(result: true);
           },
           child: Text(
@@ -150,6 +152,7 @@ class _CaptureDialog extends StatelessWidget {
         TextButton(
           onPressed: () {
             ShortcutService.clearBinding(action);
+            MediaKeyShortcutBridge.sync();
             Get.back(result: true);
           },
           child: Text('清除绑定', style: TextStyle(color: theme.colorScheme.error)),
@@ -205,6 +208,7 @@ class _CaptureContentState extends State<_CaptureContent> {
       return KeyEventResult.handled;
     }
     ShortcutService.setBinding(widget.action, binding);
+    MediaKeyShortcutBridge.sync();
     SmartDialog.showToast('已保存');
     Get.back(result: true);
     return KeyEventResult.handled;
@@ -299,6 +303,7 @@ class _ComboDialogState extends State<_ComboDialog> {
   void _save() {
     ShortcutService.setComboBinding(widget.id, _binding);
     ShortcutService.setComboActions(widget.id, _actions);
+    MediaKeyShortcutBridge.sync();
     Get.back(result: true);
   }
 

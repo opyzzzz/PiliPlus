@@ -12,6 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : AudioServiceActivity() {
     private var mediaKeyChannel: MethodChannel? = null
     @Volatile private var mediaKeyShortcutsEnabled = false
+    @Volatile private var capturedMediaKeyCodes: Set<Int> = emptySet()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -23,6 +24,11 @@ class MainActivity : AudioServiceActivity() {
                 when (call.method) {
                     "setEnabled" -> {
                         mediaKeyShortcutsEnabled = call.argument<Boolean>("enabled") == true
+                        capturedMediaKeyCodes = if (mediaKeyShortcutsEnabled) {
+                            (call.argument<List<Int>>("keyCodes") ?: emptyList()).toSet()
+                        } else {
+                            emptySet()
+                        }
                         result.success(null)
                     }
                     else -> result.notImplemented()
@@ -35,11 +41,14 @@ class MainActivity : AudioServiceActivity() {
         val supported = when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP,
             KeyEvent.KEYCODE_VOLUME_DOWN,
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
             KeyEvent.KEYCODE_MEDIA_NEXT,
             KeyEvent.KEYCODE_MEDIA_PREVIOUS -> true
             else -> false
         }
-        if (supported && mediaKeyShortcutsEnabled) {
+        if (supported && mediaKeyShortcutsEnabled &&
+            event.keyCode in capturedMediaKeyCodes
+        ) {
             val action = when (event.action) {
                 KeyEvent.ACTION_UP -> "up"
                 KeyEvent.ACTION_DOWN -> if (event.repeatCount > 0) "repeat" else "down"
