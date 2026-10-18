@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
 
 import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
@@ -80,10 +81,15 @@ abstract final class MediaKeyShortcutBridge {
     if (_handlerInstalled) return;
     _handlerInstalled = true;
     _channel.setMethodCallHandler((call) async {
-      if (call.method != 'keyEvent' || (!_enabled && !_capturing)) return;
+      if (call.method != 'keyEvent') return;
+      if (!_enabled && !_capturing) {
+        debugPrint('[ShortcutTrace][bridge] dropped native event: disabled and not capturing');
+        return;
+      }
       final args = Map<Object?, Object?>.from(call.arguments as Map);
       final keyCode = args['keyCode'] as int?;
       final action = args['action'] as String?;
+      debugPrint('[ShortcutTrace][bridge] native event keyCode=$keyCode action=$action enabled=$_enabled capturing=$_capturing');
       final logicalKey = switch (keyCode) {
         24 => LogicalKeyboardKey.audioVolumeUp,
         25 => LogicalKeyboardKey.audioVolumeDown,
@@ -102,7 +108,10 @@ abstract final class MediaKeyShortcutBridge {
         88 => 0x000c00b6,
         _ => null,
       };
-      if (logicalKey == null || physicalKeyId == null) return;
+      if (logicalKey == null || physicalKeyId == null) {
+        debugPrint('[ShortcutTrace][bridge] unmapped native keyCode=$keyCode');
+        return;
+      }
       final physicalKey = PhysicalKeyboardKey(physicalKeyId);
       final event = switch (action) {
         'down' => KeyDownEvent(physicalKey: physicalKey, logicalKey: logicalKey, timeStamp: Duration.zero),
@@ -110,7 +119,13 @@ abstract final class MediaKeyShortcutBridge {
         'up' => KeyUpEvent(physicalKey: physicalKey, logicalKey: logicalKey, timeStamp: Duration.zero),
         _ => null,
       };
-      if (event != null) HardwareKeyboard.instance.handleKeyEvent(event);
+      if (event != null) {
+        debugPrint('[ShortcutTrace][bridge] injecting ${event.runtimeType} logical=${logicalKey.keyLabel} physical=$physicalKeyId into HardwareKeyboard');
+        HardwareKeyboard.instance.handleKeyEvent(event);
+        debugPrint('[ShortcutTrace][bridge] HardwareKeyboard.handleKeyEvent returned for ${event.runtimeType} logical=${logicalKey.keyLabel}; check player-focus/capture logs to confirm routing');
+      } else {
+        debugPrint('[ShortcutTrace][bridge] ignored unknown action=$action keyCode=$keyCode');
+      }
     });
   }
 }

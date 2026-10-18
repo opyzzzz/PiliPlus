@@ -6,6 +6,7 @@ import 'package:PiliPlus/services/media_key_shortcut_bridge.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -185,6 +186,9 @@ class _CaptureContentState extends State<_CaptureContent> {
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     final key = event.logicalKey;
+    if (ShortcutService.isRestrictedKey(key)) {
+      debugPrint('[ShortcutTrace][capture] event=${event.runtimeType} key=${key.keyLabel} focus=${node.hasFocus}');
+    }
     if (ShortcutService.isModifier(key)) {
       // 按住修饰键时实时刷新预览
       if (event is KeyDownEvent || event is KeyUpEvent) {

@@ -15,6 +15,7 @@ import 'package:PiliPlus/services/media_key_shortcut_bridge.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyUpEvent, LogicalKeyboardKey, HardwareKeyboard;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -54,7 +55,13 @@ class PlayerFocus extends StatelessWidget {
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
+        if (ShortcutService.isRestrictedKey(event.logicalKey)) {
+          debugPrint('[ShortcutTrace][player-focus] event=${event.runtimeType} key=${event.logicalKey.keyLabel} focus=${node.hasFocus}');
+        }
         final handled = _handleKey(context, event);
+        if (ShortcutService.isRestrictedKey(event.logicalKey)) {
+          debugPrint('[ShortcutTrace][player-focus] result handled=$handled event=${event.runtimeType} key=${event.logicalKey.keyLabel}');
+        }
         if (handled || _shouldHandle(event.logicalKey)) {
           return KeyEventResult.handled;
         }

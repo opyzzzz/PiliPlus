@@ -3,6 +3,7 @@ package com.example.piliplus
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import android.view.WindowManager.LayoutParams
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -50,6 +51,9 @@ class MainActivity : AudioServiceActivity() {
             KeyEvent.KEYCODE_MEDIA_PREVIOUS -> true
             else -> false
         }
+        if (supported) {
+            Log.d("PiliPlusMediaKeys", "dispatch keyCode=${event.keyCode} action=${event.action} repeat=${event.repeatCount} enabled=$mediaKeyShortcutsEnabled capturing=$capturingMediaKey bound=${event.keyCode in capturedMediaKeyCodes} channel=${mediaKeyChannel != null}")
+        }
         if (supported && (capturingMediaKey ||
             (mediaKeyShortcutsEnabled && event.keyCode in capturedMediaKeyCodes))
         ) {
@@ -59,12 +63,16 @@ class MainActivity : AudioServiceActivity() {
                 else -> null
             }
             if (action != null) {
+                Log.d("PiliPlusMediaKeys", "forward keyCode=${event.keyCode} mappedAction=$action")
                 mediaKeyChannel?.invokeMethod("keyEvent", mapOf(
                     "keyCode" to event.keyCode,
                     "action" to action,
                     "repeatCount" to event.repeatCount,
                 ))
-                if (mediaKeyChannel != null) return true
+                if (mediaKeyChannel != null) {
+                    Log.d("PiliPlusMediaKeys", "consumed keyCode=${event.keyCode} action=$action")
+                    return true
+                }
             }
         }
         return super.dispatchKeyEvent(event)
