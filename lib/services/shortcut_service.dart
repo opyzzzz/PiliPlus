@@ -8,7 +8,6 @@ import 'package:flutter/services.dart'
         HardwareKeyboard,
         KeyDownEvent,
         KeyEvent,
-        KeyRepeatEvent,
         KeyUpEvent,
         LogicalKeyboardKey;
 
