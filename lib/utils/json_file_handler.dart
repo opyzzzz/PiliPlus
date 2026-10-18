@@ -71,7 +71,7 @@ class JsonFileHandler extends ReportHandler {
         enableStackTrace: false,
         enableCustomParameters: false,
       );
-      await add((raf) => raf.writeString('${jsonEncode(json)}\\n'));
+      await add((raf) => raf.writeString('${jsonEncode(json)}\n'));
     } catch (_) {
       // Diagnostics must never interfere with key-event processing.
     }
