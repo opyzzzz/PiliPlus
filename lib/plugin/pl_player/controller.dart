@@ -1361,11 +1361,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   /// 设置长按倍速状态 live模式下禁用
-  Future<void> setLongPressStatus(bool val) async {
+  Future<void> setLongPressStatus(bool val, {bool force = false}) async {
     if (isLive) {
       return;
     }
-    if (controlsLock.value) {
+    if (controlsLock.value && !force) {
       return;
     }
     if (longPressStatus.value == val) {
