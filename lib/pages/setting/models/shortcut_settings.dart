@@ -283,9 +283,8 @@ class _ComboDialogState extends State<_ComboDialog> {
   }
 
   void _save() {
-    ShortcutService
-      ..setComboBinding(widget.id, _binding)
-      ..setComboActions(widget.id, _actions);
+    ShortcutService.setComboBinding(widget.id, _binding);
+    ShortcutService.setComboActions(widget.id, _actions);
     Get.back(result: true);
   }
 
