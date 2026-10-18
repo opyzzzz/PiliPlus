@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show exit, Platform;
 import 'dart:math' as math;
 
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/pages/common/common_intro_controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/features/landscape/landscape_feature.dart';
@@ -344,7 +345,7 @@ class PlayerFocus extends StatelessWidget {
         return true;
 
       case ShortcutAction.speedReset:
-        _setSpeed(plPlayerController.playSpeedDefault);
+        _setSpeed(Pref.playSpeedDefault);
         return true;
 
       case ShortcutAction.prevEpisode:
