@@ -233,7 +233,7 @@ class _CaptureContentState extends State<_CaptureContent> {
           ],
           const SizedBox(height: 8),
           Text(
-            '按 Esc 取消；直播与普通视频的快捷键相互独立，可共用同一键位',
+            'Esc 也可作为绑定键；取消请点击“取消”。直播与普通视频的快捷键相互独立，可共用同一键位',
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.outline,
             ),

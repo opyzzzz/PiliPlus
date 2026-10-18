@@ -58,6 +58,9 @@ class PlayerFocus extends StatelessWidget {
         }
         return KeyEventResult.ignored;
       },
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) _clearActiveKeyState();
+      },
       child: child,
     );
   }
@@ -73,6 +76,32 @@ class PlayerFocus extends StatelessWidget {
           )
         : math.max(0.0, plPlayerController.volume.value - 0.1);
     plPlayerController.setVolume(volume);
+  }
+
+  void _clearActiveKeyState() {
+    final activeActions = ShortcutService.clearActiveKeyState();
+    for (final action in activeActions) {
+      _finishHoldAction(action);
+    }
+  }
+
+  void _finishHoldAction(ShortcutAction action) {
+    switch (action) {
+      case ShortcutAction.volumeUp:
+      case ShortcutAction.volumeDown:
+        plPlayerController.cancelLongPressTimer();
+        break;
+      case ShortcutAction.seekForward:
+        plPlayerController
+          ..cancelLongPressTimer()
+          ..setLongPressStatus(false, force: true);
+        break;
+      case ShortcutAction.likeTriple:
+        introController?.onCancelTriple();
+        break;
+      default:
+        break;
+    }
   }
 
   void _updateVolume(KeyEvent event, {required bool isIncrease}) {
@@ -142,6 +171,11 @@ class PlayerFocus extends StatelessWidget {
         exit(0);
       }
       return true;
+    }
+
+    if (event is KeyDownEvent) {
+      final staleAction = ShortcutService.takeActiveHoldAction(key);
+      if (staleAction != null) _finishHoldAction(staleAction);
     }
 
     if (ShortcutService.consumeComboContinuation(event)) return true;
@@ -220,7 +254,7 @@ class PlayerFocus extends StatelessWidget {
             plPlayerController.cancelLongPressTimer();
             if (hasPlayer) {
               if (plPlayerController.longPressStatus.value) {
-                plPlayerController.setLongPressStatus(false);
+                plPlayerController.setLongPressStatus(false, force: true);
               } else {
                 plPlayerController.onForward(
                   plPlayerController.fastForBackwardDuration,

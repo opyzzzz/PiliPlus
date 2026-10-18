@@ -8,6 +8,7 @@ import 'package:flutter/services.dart'
         HardwareKeyboard,
         KeyDownEvent,
         KeyEvent,
+        KeyRepeatEvent,
         KeyUpEvent,
         LogicalKeyboardKey;
 
@@ -44,7 +45,8 @@ abstract final class ShortcutService {
     LogicalKeyboardKey.mediaTrackNext,
     LogicalKeyboardKey.mediaTrackPrevious,
   };
-  static final Map<LogicalKeyboardKey, ShortcutAction> _activeRestrictedActions = {};
+  /// 记录所有按住型快捷键的 KeyDown，确保 KeyUp 与原动作配对。
+  static final Map<LogicalKeyboardKey, ShortcutAction> _activeHoldActions = {};
 
   static bool get allowRestrictedKeys => Pref.allowMediaKeyShortcuts;
 
@@ -65,30 +67,48 @@ abstract final class ShortcutService {
   static bool isCustomized(ShortcutAction action) =>
       Pref.customKeyBindings.containsKey(action.name);
 
-  /// 按当前按下的键（含修饰键）匹配动作；未绑定或无匹配返回 null
+  /// 按当前按下的键（含修饰键）匹配动作；按住型动作必须按 KeyDown/KeyUp 配对。
   static ShortcutAction? matchAction(KeyEvent event, {required bool isLive}) {
     final key = event.logicalKey;
-    final restricted = isRestrictedKey(key);
 
-    // 即使开关在按住期间关闭，也要将此前开始的按住型动作正常收尾。
-    if (restricted && event is KeyUpEvent) {
-      final active = _activeRestrictedActions.remove(key);
-      if (active != null) return active;
+    if (event is KeyUpEvent) {
+      // 不根据 KeyUp 时的修饰键状态重新匹配，避免 Ctrl/Alt 提前松开导致错配。
+      // 没有对应 KeyDown 的释放事件必须忽略，不能触发孤立的 hold 收尾逻辑。
+      return _activeHoldActions.remove(key);
     }
-    if (restricted && !allowRestrictedKeys) return null;
+    if (event is KeyDownEvent) {
+      // 调用方会先尝试清理同键的遗留动作；此处再做防御性清理。
+      _activeHoldActions.remove(key);
+    } else if (event is KeyRepeatEvent) {
+      return _activeHoldActions[key];
+    } else {
+      return null;
+    }
+
+    if (isRestrictedKey(key) && !allowRestrictedKeys) return null;
 
     final binding = currentBinding(key);
-    for (final action in ShortcutAction.values) {
+    for (final action of ShortcutAction.values) {
       if (!action.context.applies(isLive)) continue;
       if (action.desktopOnly && !PlatformUtils.isDesktop) continue;
       if (bindingOf(action) == binding) {
-        if (restricted && event is KeyDownEvent && action.isHold) {
-          _activeRestrictedActions[key] = action;
-        }
+        if (action.isHold) _activeHoldActions[key] = action;
         return action;
       }
     }
     return null;
+  }
+
+  /// 取出某个键遗留的按住动作，用于新 KeyDown 到达时清理上一次未配对的按压。
+  static ShortcutAction? takeActiveHoldAction(LogicalKeyboardKey key) =>
+      _activeHoldActions.remove(key);
+
+  /// 清除所有按键生命周期状态，并返回需要收尾的按住动作。
+  static Set<ShortcutAction> clearActiveKeyState() {
+    final actions = _activeHoldActions.values.toSet();
+    _activeHoldActions.clear();
+    _activeComboKeys.clear();
+    return actions;
   }
 
 
@@ -127,7 +147,7 @@ abstract final class ShortcutService {
 
   static void setComboBinding(String id, KeyBinding? binding) {
     if (!comboIds.contains(id)) return;
-    if (binding != null && !isRestrictedBindingAllowed(binding)) return;
+    if (binding != null && comboBindingConflictOf(id, binding) != null) return;
     final map = Pref.customKeyBindings;
     map[_comboBindingKey(id)] = binding?.toJson() ?? 'none';
     Pref.customKeyBindings = map;
@@ -276,7 +296,12 @@ abstract final class ShortcutService {
 
   /// 保存自定义绑定；与默认一致时直接移除自定义记录
   static void setBinding(ShortcutAction action, KeyBinding binding) {
-    if (!isRestrictedBindingAllowed(binding)) return;
+    if (!isRestrictedBindingAllowed(binding) ||
+        reservedBindingConflict(binding) != null ||
+        conflictOf(action, binding) != null ||
+        bindingConflictWithCombo(action, binding) != null) {
+      return;
+    }
     final map = Pref.customKeyBindings;
     if (binding == action.defaultBinding) {
       map.remove(action.name);
@@ -313,7 +338,8 @@ abstract final class ShortcutService {
     _comboIndexes.clear();
     _comboSnapshots.clear();
     _activeComboKeys.clear();
-    _activeRestrictedActions.clear();
+    // Keep active hold records until KeyUp so the matching release can finish
+    // timers/status even when bindings are reset while a key is held.
   }
 
   // ── 显示 ────────────────────────────────────────────────────────────────
