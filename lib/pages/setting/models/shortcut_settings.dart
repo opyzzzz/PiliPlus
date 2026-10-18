@@ -342,10 +342,14 @@ class _ComboDialogState extends State<_ComboDialog> {
             Text('触发键：$binding'),
             const SizedBox(height: 8),
             OutlinedButton(
-              onPressed: () => setState(() {
-                _capturing = !_capturing;
-                _error = null;
-              }),
+              onPressed: () {
+                final capturing = !_capturing;
+                setState(() {
+                  _capturing = capturing;
+                  _error = null;
+                });
+                MediaKeyShortcutBridge.setCapturing(capturing);
+              },
               child: Text(_capturing ? '停止录入' : '设置触发键'),
             ),
             if (_capturing)
