@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:PiliPlus/services/logger.dart';
 import 'package:catcher_2/catcher_2.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 
 class JsonFileHandler extends ReportHandler {
   final bool enableDeviceParameters;
@@ -47,6 +48,32 @@ class JsonFileHandler extends ReportHandler {
     } catch (e, s) {
       logger.e('Init log file', error: e, stackTrace: s);
       return null;
+    }
+  }
+
+  /// Writes a lightweight diagnostic entry into Settings > Logs.
+  /// Respects the app's log collection setting and never interrupts input handling.
+  static Future<void> addDiagnostic(String message) async {
+    if (!Pref.enableLog) return;
+    try {
+      final report = Report(
+        '[ShortcutTrace] $message',
+        null,
+        DateTime.now(),
+        const {},
+        const {},
+        const {},
+        null,
+      );
+      final json = report.toJson(
+        enableDeviceParameters: false,
+        enableApplicationParameters: false,
+        enableStackTrace: false,
+        enableCustomParameters: false,
+      );
+      await add((raf) => raf.writeString('${jsonEncode(json)}\\n'));
+    } catch (_) {
+      // Diagnostics must never interfere with key-event processing.
     }
   }
 

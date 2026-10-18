@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
 
 import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
 import 'package:PiliPlus/services/shortcut_service.dart';
+import 'package:PiliPlus/utils/json_file_handler.dart';
 
 abstract final class MediaKeyShortcutBridge {
   static const MethodChannel _channel = MethodChannel('piliplus/media_key_shortcuts');
@@ -83,13 +83,13 @@ abstract final class MediaKeyShortcutBridge {
     _channel.setMethodCallHandler((call) async {
       if (call.method != 'keyEvent') return;
       if (!_enabled && !_capturing) {
-        debugPrint('[ShortcutTrace][bridge] dropped native event: disabled and not capturing');
+        JsonFileHandler.addDiagnostic('bridge dropped native event: disabled and not capturing');
         return;
       }
       final args = Map<Object?, Object?>.from(call.arguments as Map);
       final keyCode = args['keyCode'] as int?;
       final action = args['action'] as String?;
-      debugPrint('[ShortcutTrace][bridge] native event keyCode=$keyCode action=$action enabled=$_enabled capturing=$_capturing');
+      JsonFileHandler.addDiagnostic('bridge received native event keyCode=$keyCode action=$action enabled=$_enabled capturing=$_capturing');
       final logicalKey = switch (keyCode) {
         24 => LogicalKeyboardKey.audioVolumeUp,
         25 => LogicalKeyboardKey.audioVolumeDown,
@@ -109,7 +109,7 @@ abstract final class MediaKeyShortcutBridge {
         _ => null,
       };
       if (logicalKey == null || physicalKeyId == null) {
-        debugPrint('[ShortcutTrace][bridge] unmapped native keyCode=$keyCode');
+        JsonFileHandler.addDiagnostic('bridge unmapped native keyCode=$keyCode');
         return;
       }
       final physicalKey = PhysicalKeyboardKey(physicalKeyId);
@@ -120,11 +120,11 @@ abstract final class MediaKeyShortcutBridge {
         _ => null,
       };
       if (event != null) {
-        debugPrint('[ShortcutTrace][bridge] injecting ${event.runtimeType} logical=${logicalKey.keyLabel} physical=$physicalKeyId into HardwareKeyboard');
+        JsonFileHandler.addDiagnostic('bridge injecting ${event.runtimeType} logical=${logicalKey.keyLabel} physical=$physicalKeyId into HardwareKeyboard');
         HardwareKeyboard.instance.handleKeyEvent(event);
-        debugPrint('[ShortcutTrace][bridge] HardwareKeyboard.handleKeyEvent returned for ${event.runtimeType} logical=${logicalKey.keyLabel}; check player-focus/capture logs to confirm routing');
+        JsonFileHandler.addDiagnostic('bridge HardwareKeyboard.handleKeyEvent returned for ${event.runtimeType} logical=${logicalKey.keyLabel}; check player-focus/capture entries to confirm routing');
       } else {
-        debugPrint('[ShortcutTrace][bridge] ignored unknown action=$action keyCode=$keyCode');
+        JsonFileHandler.addDiagnostic('bridge ignored unknown action=$action keyCode=$keyCode');
       }
     });
   }
