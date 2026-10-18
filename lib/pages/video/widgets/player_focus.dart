@@ -2,9 +2,13 @@ import 'dart:async';
 import 'dart:io' show exit, Platform;
 import 'dart:math' as math;
 
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/pages/common/common_intro_controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
+import 'package:PiliPlus/features/landscape/landscape_feature.dart';
+import 'package:PiliPlus/models/common/landscape_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart' show applyLandscapeMode;
 import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
 import 'package:PiliPlus/services/shortcut_service.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
@@ -227,6 +231,27 @@ class PlayerFocus extends StatelessWidget {
         _toggleFullScreen(inApp: false);
         return true;
 
+      case ShortcutAction.landscapeDisable:
+        LandscapeFeature.setModeAndApply(
+          LandscapeMode.disabled,
+          applyLandscapeMode,
+        );
+        return true;
+
+      case ShortcutAction.landscapeForward:
+        LandscapeFeature.setModeAndApply(
+          LandscapeMode.landscape,
+          applyLandscapeMode,
+        );
+        return true;
+
+      case ShortcutAction.landscapeReverse:
+        LandscapeFeature.setModeAndApply(
+          LandscapeMode.reverseLandscape,
+          applyLandscapeMode,
+        );
+        return true;
+
       case ShortcutAction.inAppFullscreen:
         _toggleFullScreen(inApp: true);
         return true;
@@ -320,7 +345,7 @@ class PlayerFocus extends StatelessWidget {
         return true;
 
       case ShortcutAction.speedReset:
-        _setSpeed(plPlayerController.playSpeedDefault);
+        _setSpeed(Pref.playSpeedDefault);
         return true;
 
       case ShortcutAction.prevEpisode:
