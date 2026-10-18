@@ -11,6 +11,7 @@ import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart' show applyLandscapeMode;
 import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
 import 'package:PiliPlus/services/shortcut_service.dart';
+import 'package:PiliPlus/services/media_key_shortcut_bridge.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -49,6 +50,8 @@ class PlayerFocus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Synchronize the persisted opt-in with Android before player key handling.
+    MediaKeyShortcutBridge.setEnabled(Pref.allowMediaKeyShortcuts);
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {

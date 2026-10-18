@@ -2,6 +2,7 @@ import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
 import 'package:PiliPlus/services/shortcut_service.dart';
+import 'package:PiliPlus/services/media_key_shortcut_bridge.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/services.dart'
@@ -23,6 +24,7 @@ final List<SettingsModel> shortcutSettings = [
     leading: Icon(Icons.volume_up_outlined),
     setKey: SettingBoxKey.allowMediaKeyShortcuts,
     defaultVal: false,
+    onChanged: MediaKeyShortcutBridge.setEnabled,
   ),
   const SwitchModel(
     title: '启用键盘控制',
