@@ -52,7 +52,9 @@ class MainActivity : AudioServiceActivity() {
             else -> false
         }
         if (supported) {
-            Log.d("PiliPlusMediaKeys", "dispatch keyCode=${event.keyCode} action=${event.action} repeat=${event.repeatCount} enabled=$mediaKeyShortcutsEnabled capturing=$capturingMediaKey bound=${event.keyCode in capturedMediaKeyCodes} channel=${mediaKeyChannel != null}")
+            val diagnostic = "dispatch keyCode=${event.keyCode} action=${event.action} repeat=${event.repeatCount} enabled=$mediaKeyShortcutsEnabled capturing=$capturingMediaKey bound=${event.keyCode in capturedMediaKeyCodes} channel=${mediaKeyChannel != null}"
+            Log.d("PiliPlusMediaKeys", diagnostic)
+            mediaKeyChannel?.invokeMethod("diagnostic", diagnostic)
         }
         if (supported && (capturingMediaKey ||
             (mediaKeyShortcutsEnabled && event.keyCode in capturedMediaKeyCodes))

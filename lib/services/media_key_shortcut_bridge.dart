@@ -81,6 +81,13 @@ abstract final class MediaKeyShortcutBridge {
     if (_handlerInstalled) return;
     _handlerInstalled = true;
     _channel.setMethodCallHandler((call) async {
+      if (call.method == 'diagnostic') {
+        final message = call.arguments as String?;
+        if (message != null && message.isNotEmpty) {
+          JsonFileHandler.addDiagnostic('android $message');
+        }
+        return;
+      }
       if (call.method != 'keyEvent') return;
       if (!_enabled && !_capturing) {
         JsonFileHandler.addDiagnostic('bridge dropped native event: disabled and not capturing');
