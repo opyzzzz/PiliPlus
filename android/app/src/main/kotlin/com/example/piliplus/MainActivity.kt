@@ -13,6 +13,7 @@ class MainActivity : AudioServiceActivity() {
     private var mediaKeyChannel: MethodChannel? = null
     @Volatile private var mediaKeyShortcutsEnabled = false
     @Volatile private var capturedMediaKeyCodes: Set<Int> = emptySet()
+    @Volatile private var capturingMediaKey = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -31,6 +32,10 @@ class MainActivity : AudioServiceActivity() {
                         }
                         result.success(null)
                     }
+                    "setCapturing" -> {
+                        capturingMediaKey = call.argument<Boolean>("capturing") == true
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -46,8 +51,8 @@ class MainActivity : AudioServiceActivity() {
             KeyEvent.KEYCODE_MEDIA_PREVIOUS -> true
             else -> false
         }
-        if (supported && mediaKeyShortcutsEnabled &&
-            event.keyCode in capturedMediaKeyCodes
+        if (supported && (capturingMediaKey ||
+            (mediaKeyShortcutsEnabled && event.keyCode in capturedMediaKeyCodes))
         ) {
             val action = when (event.action) {
                 KeyEvent.ACTION_UP -> "up"

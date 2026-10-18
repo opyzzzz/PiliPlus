@@ -9,12 +9,25 @@ abstract final class MediaKeyShortcutBridge {
   static const MethodChannel _channel = MethodChannel('piliplus/media_key_shortcuts');
   static bool _enabled = false;
   static bool _handlerInstalled = false;
+  static bool _capturing = false;
   static bool _lastEnabled = false;
   static Set<int> _lastKeyCodes = <int>{};
 
   static Future<void> setEnabled(bool enabled) async {
     _enabled = enabled;
     await sync();
+  }
+
+  static Future<void> setCapturing(bool capturing) async {
+    _capturing = capturing;
+    _installHandler();
+    try {
+      await _channel.invokeMethod<void>('setCapturing', {'capturing': capturing});
+    } on MissingPluginException {
+      // Android-specific bridge; other platforms use normal key events.
+    } on PlatformException {
+      // A transient channel failure must not break shortcut configuration.
+    }
   }
 
   /// Push the current opt-in and restricted bindings to Android.
@@ -71,7 +84,7 @@ abstract final class MediaKeyShortcutBridge {
     if (_handlerInstalled) return;
     _handlerInstalled = true;
     _channel.setMethodCallHandler((call) async {
-      if (call.method != 'keyEvent' || !_enabled) return;
+      if (call.method != 'keyEvent' || (!_enabled && !_capturing)) return;
       final args = Map<Object?, Object?>.from(call.arguments as Map);
       final keyCode = args['keyCode'] as int?;
       final action = args['action'] as String?;

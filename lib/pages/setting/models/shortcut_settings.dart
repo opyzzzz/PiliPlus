@@ -5,6 +5,7 @@ import 'package:PiliPlus/services/shortcut_service.dart';
 import 'package:PiliPlus/services/media_key_shortcut_bridge.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyUpEvent, LogicalKeyboardKey;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -67,6 +68,7 @@ Future<void> _showComboDialog(
   String id,
   VoidCallback setState,
 ) async {
+  await MediaKeyShortcutBridge.setEnabled(Pref.allowMediaKeyShortcuts);
   final changed = await showDialog<bool>(
     context: context,
     builder: (context) => _ComboDialog(id: id),
@@ -86,10 +88,17 @@ Future<void> _showCaptureDialog(
   ShortcutAction action,
   VoidCallback setState,
 ) async {
-  final changed = await showDialog<bool>(
-    context: context,
-    builder: (context) => _CaptureDialog(action: action),
-  );
+  await MediaKeyShortcutBridge.setEnabled(Pref.allowMediaKeyShortcuts);
+  await MediaKeyShortcutBridge.setCapturing(true);
+  bool? changed;
+  try {
+    changed = await showDialog<bool>(
+      context: context,
+      builder: (context) => _CaptureDialog(action: action),
+    );
+  } finally {
+    await MediaKeyShortcutBridge.setCapturing(false);
+  }
   if (changed == true) {
     setState();
   }
@@ -301,10 +310,17 @@ class _ComboDialogState extends State<_ComboDialog> {
   }
 
   void _save() {
+    MediaKeyShortcutBridge.setCapturing(false);
     ShortcutService.setComboBinding(widget.id, _binding);
     ShortcutService.setComboActions(widget.id, _actions);
     MediaKeyShortcutBridge.sync();
     Get.back(result: true);
+  }
+
+  @override
+  void dispose() {
+    MediaKeyShortcutBridge.setCapturing(false);
+    super.dispose();
   }
 
   @override
@@ -327,10 +343,14 @@ class _ComboDialogState extends State<_ComboDialog> {
             Text('触发键：$binding'),
             const SizedBox(height: 8),
             OutlinedButton(
-              onPressed: () => setState(() {
-                _capturing = !_capturing;
-                _error = null;
-              }),
+              onPressed: () {
+                final capturing = !_capturing;
+                setState(() {
+                  _capturing = capturing;
+                  _error = null;
+                });
+                MediaKeyShortcutBridge.setCapturing(capturing);
+              },
               child: Text(_capturing ? '停止录入' : '设置触发键'),
             ),
             if (_capturing)
