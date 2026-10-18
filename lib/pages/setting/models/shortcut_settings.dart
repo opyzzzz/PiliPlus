@@ -306,6 +306,7 @@ class _ComboDialogState extends State<_ComboDialog> {
       _capturing = false;
       _error = null;
     });
+    MediaKeyShortcutBridge.setCapturing(false);
     return KeyEventResult.handled;
   }
 
