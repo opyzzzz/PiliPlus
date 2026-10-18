@@ -37,7 +37,7 @@ abstract final class ShortcutService {
   static bool isModifier(LogicalKeyboardKey key) => _modifierKeys.contains(key);
 
   /// 音量与媒体控制键默认受限，避免抢占系统音量或媒体控制行为。
-  static const Set<LogicalKeyboardKey> _restrictedKeys = {
+  static final Set<LogicalKeyboardKey> _restrictedKeys = {
     LogicalKeyboardKey.audioVolumeUp,
     LogicalKeyboardKey.audioVolumeDown,
     LogicalKeyboardKey.audioVolumeMute,
@@ -88,7 +88,7 @@ abstract final class ShortcutService {
     if (isRestrictedKey(key) && !allowRestrictedKeys) return null;
 
     final binding = currentBinding(key);
-    for (final action of ShortcutAction.values) {
+    for (final action in ShortcutAction.values) {
       if (!action.context.applies(isLive)) continue;
       if (action.desktopOnly && !PlatformUtils.isDesktop) continue;
       if (bindingOf(action) == binding) {
