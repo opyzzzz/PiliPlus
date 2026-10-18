@@ -21,6 +21,7 @@ enum ShortcutCategory {
   playback('播放控制'),
   volumeSeek('音量与进度'),
   display('画面显示'),
+  landscape('横屏模式'),
   danmaku('弹幕'),
   interact('互动'),
   speedEpisode('倍速与选集');
@@ -119,6 +120,21 @@ enum ShortcutAction {
     context: .live,
   ),
   fullscreen('全屏', .display, KeyBinding(LogicalKeyboardKey.keyF)),
+  landscapeDisable(
+    '关闭横屏模式',
+    .landscape,
+    KeyBinding(LogicalKeyboardKey.keyL, shift: true),
+  ),
+  landscapeForward(
+    '正向横屏',
+    .landscape,
+    KeyBinding(LogicalKeyboardKey.arrowRight, shift: true),
+  ),
+  landscapeReverse(
+    '反向横屏',
+    .landscape,
+    KeyBinding(LogicalKeyboardKey.arrowLeft, shift: true),
+  ),
   inAppFullscreen(
     '应用内全屏',
     .display,
