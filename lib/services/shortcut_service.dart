@@ -35,6 +35,25 @@ abstract final class ShortcutService {
 
   static bool isModifier(LogicalKeyboardKey key) => _modifierKeys.contains(key);
 
+  /// 音量与媒体控制键默认受限，避免抢占系统音量或媒体控制行为。
+  static const Set<LogicalKeyboardKey> _restrictedKeys = {
+    LogicalKeyboardKey.audioVolumeUp,
+    LogicalKeyboardKey.audioVolumeDown,
+    LogicalKeyboardKey.audioVolumeMute,
+    LogicalKeyboardKey.mediaPlayPause,
+    LogicalKeyboardKey.mediaTrackNext,
+    LogicalKeyboardKey.mediaTrackPrevious,
+  };
+  static final Map<LogicalKeyboardKey, ShortcutAction> _activeRestrictedActions = {};
+
+  static bool get allowRestrictedKeys => Pref.allowMediaKeyShortcuts;
+
+  static bool isRestrictedKey(LogicalKeyboardKey key) =>
+      _restrictedKeys.contains(key);
+
+  static bool isRestrictedBindingAllowed(KeyBinding binding) =>
+      !isRestrictedKey(binding.key) || allowRestrictedKeys;
+
   /// 当前生效的绑定：自定义优先，否则用默认值（已清除的动作为 null）
   static KeyBinding? bindingOf(ShortcutAction action) {
     final custom = Pref.customKeyBindings[action.name];
@@ -48,11 +67,26 @@ abstract final class ShortcutService {
 
   /// 按当前按下的键（含修饰键）匹配动作；未绑定或无匹配返回 null
   static ShortcutAction? matchAction(KeyEvent event, {required bool isLive}) {
-    final binding = currentBinding(event.logicalKey);
+    final key = event.logicalKey;
+    final restricted = isRestrictedKey(key);
+
+    // 即使开关在按住期间关闭，也要将此前开始的按住型动作正常收尾。
+    if (restricted && event is KeyUpEvent) {
+      final active = _activeRestrictedActions.remove(key);
+      if (active != null) return active;
+    }
+    if (restricted && !allowRestrictedKeys) return null;
+
+    final binding = currentBinding(key);
     for (final action in ShortcutAction.values) {
       if (!action.context.applies(isLive)) continue;
       if (action.desktopOnly && !PlatformUtils.isDesktop) continue;
-      if (bindingOf(action) == binding) return action;
+      if (bindingOf(action) == binding) {
+        if (restricted && event is KeyDownEvent && action.isHold) {
+          _activeRestrictedActions[key] = action;
+        }
+        return action;
+      }
     }
     return null;
   }
@@ -93,6 +127,7 @@ abstract final class ShortcutService {
 
   static void setComboBinding(String id, KeyBinding? binding) {
     if (!comboIds.contains(id)) return;
+    if (binding != null && !isRestrictedBindingAllowed(binding)) return;
     final map = Pref.customKeyBindings;
     map[_comboBindingKey(id)] = binding?.toJson() ?? 'none';
     Pref.customKeyBindings = map;
@@ -127,6 +162,9 @@ abstract final class ShortcutService {
   /// 返回匹配的组合 ID；只由 KeyDown 事件调用，并记录该次按键的生命周期。
   static String? matchCombo(KeyEvent event) {
     if (event is! KeyDownEvent) return null;
+    if (isRestrictedKey(event.logicalKey) && !allowRestrictedKeys) {
+      return null;
+    }
     final binding = currentBinding(event.logicalKey);
     for (final id in comboIds) {
       if (comboBindingOf(id) == binding) {
@@ -187,6 +225,9 @@ abstract final class ShortcutService {
 
   /// 组合绑定不能与普通快捷键或其他组合绑定重叠。
   static String? comboBindingConflictOf(String id, KeyBinding binding) {
+    if (!isRestrictedBindingAllowed(binding)) {
+      return '音量键及媒体控制键已禁用，请先在快捷键设置中开启允许选项';
+    }
     final reserved = reservedBindingConflict(binding);
     if (reserved != null) return reserved;
     for (final action in ShortcutAction.values) {
@@ -235,6 +276,7 @@ abstract final class ShortcutService {
 
   /// 保存自定义绑定；与默认一致时直接移除自定义记录
   static void setBinding(ShortcutAction action, KeyBinding binding) {
+    if (!isRestrictedBindingAllowed(binding)) return;
     final map = Pref.customKeyBindings;
     if (binding == action.defaultBinding) {
       map.remove(action.name);
@@ -267,9 +309,11 @@ abstract final class ShortcutService {
       map[_comboBindingKey(id)] = 'none';
     }
     Pref.customKeyBindings = map;
+    Pref.allowMediaKeyShortcuts = false;
     _comboIndexes.clear();
     _comboSnapshots.clear();
     _activeComboKeys.clear();
+    _activeRestrictedActions.clear();
   }
 
   // ── 显示 ────────────────────────────────────────────────────────────────
@@ -330,6 +374,9 @@ abstract final class ShortcutService {
     LogicalKeyboardKey.end: 'End',
     LogicalKeyboardKey.pageUp: 'PgUp',
     LogicalKeyboardKey.pageDown: 'PgDn',
+    LogicalKeyboardKey.audioVolumeUp: '音量 +（系统键）',
+    LogicalKeyboardKey.audioVolumeDown: '音量 -（系统键）',
+    LogicalKeyboardKey.audioVolumeMute: '静音（系统键）',
     LogicalKeyboardKey.mediaPlayPause: '播放/暂停',
     LogicalKeyboardKey.mediaTrackNext: '下一曲',
     LogicalKeyboardKey.mediaTrackPrevious: '上一曲',

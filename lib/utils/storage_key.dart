@@ -27,6 +27,7 @@ abstract final class SettingBoxKey {
       fullScreenSCWidth = 'fullScreenSCWidth',
       keyboardControl = 'keyboardControl',
       customKeyBindings = 'customKeyBindings',
+      allowMediaKeyShortcuts = 'allowMediaKeyShortcuts',
       pauseOnMinimize = 'pauseOnMinimize',
       pgcSkipType = 'pgcSkipType',
       audioPlayMode = 'audioPlayMode',

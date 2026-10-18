@@ -18,6 +18,13 @@ final List<SettingsModel> shortcutSettings = [
     onTap: _resetAll,
   ),
   const SwitchModel(
+    title: '允许音量键及媒体控制键作为快捷键',
+    subtitle: '开启后可绑定系统音量键、播放/暂停及上一曲/下一曲；关闭时旧绑定也不会触发自定义动作',
+    leading: Icon(Icons.volume_up_outlined),
+    setKey: SettingBoxKey.allowMediaKeyShortcuts,
+    defaultVal: false,
+  ),
+  const SwitchModel(
     title: '启用键盘控制',
     subtitle: '在播放页启用键盘快捷键',
     leading: Icon(Icons.keyboard_alt_outlined),
@@ -176,6 +183,10 @@ class _CaptureContentState extends State<_CaptureContent> {
       return KeyEventResult.handled;
     }
     final binding = ShortcutService.currentBinding(key);
+    if (!ShortcutService.isRestrictedBindingAllowed(binding)) {
+      setState(() => _error = '音量键及媒体控制键默认禁用，请先开启设置页中的允许选项');
+      return KeyEventResult.handled;
+    }
     final reservedConflict = ShortcutService.reservedBindingConflict(binding);
     if (reservedConflict != null) {
       setState(() => _error = reservedConflict);
@@ -266,6 +277,10 @@ class _ComboDialogState extends State<_ComboDialog> {
     }
     if (event is! KeyDownEvent) return KeyEventResult.handled;
     final binding = ShortcutService.currentBinding(event.logicalKey);
+    if (!ShortcutService.isRestrictedBindingAllowed(binding)) {
+      setState(() => _error = '音量键及媒体控制键默认禁用，请先开启设置页中的允许选项');
+      return KeyEventResult.handled;
+    }
     final conflict = ShortcutService.comboBindingConflictOf(widget.id, binding);
     if (conflict != null) {
       setState(() => _error = '与「$conflict」冲突，请换一个键');

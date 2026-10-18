@@ -965,6 +965,14 @@ abstract final class Pref {
   static bool get keyboardControl =>
       _setting.get(SettingBoxKey.keyboardControl, defaultValue: true);
 
+  static bool get allowMediaKeyShortcuts => _setting.get(
+    SettingBoxKey.allowMediaKeyShortcuts,
+    defaultValue: false,
+  );
+
+  static set allowMediaKeyShortcuts(bool value) =>
+      _setting.put(SettingBoxKey.allowMediaKeyShortcuts, value);
+
   /// 播放器快捷键自定义绑定：`{ actionName: bindingJson }`，`'none'` 表示已清除。
   /// Hive 读出的 Map 是 `Map<dynamic, dynamic>`，必须逐项转换而不是直接断言。
   static Map<String, dynamic> get customKeyBindings {
