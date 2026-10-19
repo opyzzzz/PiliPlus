@@ -28,6 +28,22 @@ final List<SettingsModel> shortcutSettings = [
           _showCaptureDialog(context, action, setState);
         },
       ),
+  for (final combo in const [
+    ShortcutAction.comboA,
+    ShortcutAction.comboB,
+    ShortcutAction.comboC,
+  ])
+    NormalModel(
+      leading: const Icon(Icons.playlist_play_outlined),
+      title: '配置${combo.title}动作',
+      getSubtitle: () {
+        final actions = ShortcutService.comboActionsOf(combo);
+        return actions.isEmpty
+            ? '未配置动作，点击设置循环顺序'
+            : actions.map((action) => action.title).join(' → ');
+      },
+      onTap: (context, setState) => _showComboDialog(context, combo, setState),
+    ),
   const NormalModel(
     leading: Icon(Icons.restart_alt_outlined),
     title: '恢复全部默认',
@@ -84,6 +100,121 @@ void _resetAll(BuildContext context, VoidCallback setState) {
       ],
     ),
   );
+}
+
+Future<void> _showComboDialog(
+  BuildContext context,
+  ShortcutAction combo,
+  VoidCallback setState,
+) async {
+  final changed = await showDialog<bool>(
+    context: context,
+    builder: (context) => _ComboActionDialog(combo: combo),
+  );
+  if (changed == true) setState();
+}
+
+class _ComboActionDialog extends StatefulWidget {
+  const _ComboActionDialog({required this.combo});
+  final ShortcutAction combo;
+
+  @override
+  State<_ComboActionDialog> createState() => _ComboActionDialogState();
+}
+
+class _ComboActionDialogState extends State<_ComboActionDialog> {
+  late final List<ShortcutAction> _actions =
+      ShortcutService.comboActionsOf(widget.combo).toList();
+
+  @override
+  Widget build(BuildContext context) {
+    final available = ShortcutAction.values
+        .where((action) =>
+            action != ShortcutAction.comboA &&
+            action != ShortcutAction.comboB &&
+            action != ShortcutAction.comboC &&
+            !action.isHold)
+        .toList();
+    return AlertDialog(
+      constraints: Style.dialogFixedConstraints,
+      title: Text(widget.combo.title),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('勾选动作后，可在下方调整执行顺序。'),
+              ),
+              for (final action in available)
+                CheckboxListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(action.title),
+                  value: _actions.contains(action),
+                  onChanged: (checked) => setState(() {
+                    if (checked == true) {
+                      _actions.add(action);
+                    } else {
+                      _actions.remove(action);
+                    }
+                  }),
+                ),
+              if (_actions.isNotEmpty) ...[
+                const Divider(),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('执行顺序'),
+                ),
+                for (var i = 0; i < _actions.length; i++)
+                  ListTile(
+                    dense: true,
+                    title: Text('${i + 1}. ${_actions[i].title}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: '上移',
+                          onPressed: i == 0
+                              ? null
+                              : () => setState(() {
+                            final item = _actions.removeAt(i);
+                            _actions.insert(i - 1, item);
+                          }),
+                          icon: const Icon(Icons.arrow_upward),
+                        ),
+                        IconButton(
+                          tooltip: '下移',
+                          onPressed: i == _actions.length - 1
+                              ? null
+                              : () => setState(() {
+                            final item = _actions.removeAt(i);
+                            _actions.insert(i + 1, item);
+                          }),
+                          icon: const Icon(Icons.arrow_downward),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: Get.back, child: const Text('取消')),
+        TextButton(
+          onPressed: () {
+            ShortcutService.setComboActions(widget.combo, _actions);
+            Get.back(result: true);
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
 }
 
 class _CaptureDialog extends StatelessWidget {

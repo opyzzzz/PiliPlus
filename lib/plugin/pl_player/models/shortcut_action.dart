@@ -167,6 +167,42 @@ enum ShortcutAction {
     KeyBinding(LogicalKeyboardKey.digit2, shift: true),
     context: .vod,
   ),
+  landscapeDisable(
+    '关闭横屏模式',
+    .display,
+    KeyBinding(LogicalKeyboardKey.keyL, ctrl: true, alt: true, shift: true),
+    context: .vod,
+  ),
+  landscapeForward(
+    '正向横屏',
+    .display,
+    KeyBinding(LogicalKeyboardKey.digit1, ctrl: true, alt: true, shift: true),
+    context: .vod,
+  ),
+  landscapeReverse(
+    '反向横屏',
+    .display,
+    KeyBinding(LogicalKeyboardKey.digit2, ctrl: true, alt: true, shift: true),
+    context: .vod,
+  ),
+  comboA(
+    '循环组合 A',
+    .display,
+    KeyBinding(LogicalKeyboardKey.digit4, ctrl: true, alt: true),
+    context: .vod,
+  ),
+  comboB(
+    '循环组合 B',
+    .display,
+    KeyBinding(LogicalKeyboardKey.digit5, ctrl: true, alt: true),
+    context: .vod,
+  ),
+  comboC(
+    '循环组合 C',
+    .display,
+    KeyBinding(LogicalKeyboardKey.digit6, ctrl: true, alt: true),
+    context: .vod,
+  ),
   speedReset(
     '恢复正常倍速（设置里的默认倍速）',
     .speedEpisode,

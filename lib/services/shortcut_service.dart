@@ -98,6 +98,54 @@ abstract final class ShortcutService {
     Pref.customKeyBindings = map;
   }
 
+  /// 读取循环组合中的动作序列。仅允许普通单次动作，避免长按动作缺少 KeyUp 配对。
+  static List<ShortcutAction> comboActionsOf(ShortcutAction combo) {
+    if (!_isCombo(combo)) return const [];
+    final raw = Pref.customKeyBindings['${combo.name}_actions'];
+    if (raw is! List) return const [];
+    return [
+      for (final name in raw)
+        if (name is String)
+          for (final action in ShortcutAction.values)
+            if (action.name == name && !_isCombo(action) && !action.isHold)
+              action,
+    ];
+  }
+
+  static bool _isCombo(ShortcutAction action) => const {
+    ShortcutAction.comboA,
+    ShortcutAction.comboB,
+    ShortcutAction.comboC,
+  }.contains(action);
+
+  static void setComboActions(
+    ShortcutAction combo,
+    List<ShortcutAction> actions,
+  ) {
+    if (!_isCombo(combo)) return;
+    final valid = actions
+        .where((action) => !_isCombo(action) && !action.isHold)
+        .toList();
+    final map = Pref.customKeyBindings;
+    map['${combo.name}_actions'] = valid.map((action) => action.name).toList();
+    Pref.customKeyBindings = map;
+    _comboIndices[combo] = 0;
+  }
+
+  static final Map<ShortcutAction, int> _comboIndices = {};
+
+  /// 返回下一项并推进当前组合的循环游标；空组合不执行任何动作。
+  static ShortcutAction? nextComboAction(ShortcutAction combo) {
+    final actions = comboActionsOf(combo);
+    if (actions.isEmpty) {
+      _comboIndices[combo] = 0;
+      return null;
+    }
+    final index = (_comboIndices[combo] ?? 0) % actions.length;
+    _comboIndices[combo] = (index + 1) % actions.length;
+    return actions[index];
+  }
+
   /// 恢复全部默认
   static void resetAll() {
     Pref.customKeyBindings = <String, dynamic>{};

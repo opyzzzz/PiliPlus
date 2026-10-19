@@ -1386,6 +1386,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
   }
 
+  /// 为可自定义快捷键应用固定横屏方向；null 恢复当前全屏方向策略的默认方向。
+  Future<void> setShortcutLandscapeMode(DeviceOrientation? orientation) async {
+    if (!PlatformUtils.isMobile) return;
+    if (orientation == null) {
+      await resetScreenRotation();
+      return;
+    }
+    await changeOrientation(isVertical: false, orientation: orientation);
+  }
+
   // 全屏
   bool _fsProcessing = false;
   Future<void> triggerFullScreen({

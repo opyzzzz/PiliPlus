@@ -9,9 +9,15 @@ import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
 import 'package:PiliPlus/services/shortcut_service.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/services.dart'
-    show KeyDownEvent, KeyUpEvent, LogicalKeyboardKey, HardwareKeyboard;
+    show
+      DeviceOrientation,
+      HardwareKeyboard,
+      KeyDownEvent,
+      KeyUpEvent,
+      LogicalKeyboardKey;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -320,7 +326,30 @@ class PlayerFocus extends StatelessWidget {
         return true;
 
       case ShortcutAction.speedReset:
-        _setSpeed(plPlayerController.playSpeedDefault);
+        _setSpeed(Pref.playSpeedDefault);
+        return true;
+
+      case ShortcutAction.landscapeDisable:
+        plPlayerController.setShortcutLandscapeMode(null);
+        return true;
+
+      case ShortcutAction.landscapeForward:
+        plPlayerController.setShortcutLandscapeMode(
+          DeviceOrientation.landscapeLeft,
+        );
+        return true;
+
+      case ShortcutAction.landscapeReverse:
+        plPlayerController.setShortcutLandscapeMode(
+          DeviceOrientation.landscapeRight,
+        );
+        return true;
+
+      case ShortcutAction.comboA:
+      case ShortcutAction.comboB:
+      case ShortcutAction.comboC:
+        final next = ShortcutService.nextComboAction(action);
+        if (next != null) _dispatch(context, next, event);
         return true;
 
       case ShortcutAction.prevEpisode:
