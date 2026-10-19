@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:io' show exit, Platform;
 import 'dart:math' as math;
 
+import 'package:PiliPlus/features/landscape/landscape_feature.dart';
+import 'package:PiliPlus/models/common/landscape_mode.dart';
+import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart' show applyLandscapeMode;
 import 'package:PiliPlus/pages/common/common_intro_controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
@@ -328,15 +331,15 @@ class PlayerFocus extends StatelessWidget {
         return true;
 
       case ShortcutAction.landscapeDisable:
-        plPlayerController.setShortcutLandscapeMode(0);
+        LandscapeFeature.disableAndApply(applyLandscapeMode);
         return true;
 
       case ShortcutAction.landscapeForward:
-        plPlayerController.setShortcutLandscapeMode(1);
+        LandscapeFeature.setModeAndApply(LandscapeMode.landscape, applyLandscapeMode);
         return true;
 
       case ShortcutAction.landscapeReverse:
-        plPlayerController.setShortcutLandscapeMode(2);
+        LandscapeFeature.setModeAndApply(LandscapeMode.reverseLandscape, applyLandscapeMode);
         return true;
 
       case ShortcutAction.comboA:
