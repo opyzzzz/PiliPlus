@@ -195,6 +195,10 @@ abstract final class Pref {
         defaultValue: UpPanelPosition.leftFixed.index,
       )];
 
+  /// 0 = disabled, 1 = landscape, 2 = reverse landscape.
+  static int get landscapeMode =>
+      _setting.get(SettingBoxKey.landscapeMode, defaultValue: 0);
+
   static FullScreenMode get fullScreenMode {
     int? index = _setting.get(SettingBoxKey.fullScreenMode);
     if (index == null) {

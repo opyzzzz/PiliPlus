@@ -1359,6 +1359,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required bool isVertical,
     DeviceOrientation? orientation,
   }) {
+    orientation = switch (Pref.landscapeMode) {
+      1 => DeviceOrientation.landscapeLeft,
+      2 => DeviceOrientation.landscapeRight,
+      _ => orientation,
+    };
     if (orientation == null && (mode == .none || mode == .gravity)) {
       return null;
     }
@@ -1386,14 +1391,22 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
   }
 
-  /// 为可自定义快捷键应用固定横屏方向；null 恢复当前全屏方向策略的默认方向。
-  Future<void> setShortcutLandscapeMode(DeviceOrientation? orientation) async {
-    if (!PlatformUtils.isMobile) return;
-    if (orientation == null) {
-      await resetScreenRotation();
+  /// 设置并应用横屏策略：0 关闭，1 正向横屏，2 反向横屏。
+  Future<void> setShortcutLandscapeMode(int landscapeMode) async {
+    if (!PlatformUtils.isMobile || landscapeMode < 0 || landscapeMode > 2) {
       return;
     }
-    await changeOrientation(isVertical: false, orientation: orientation);
+    await setting.put(SettingBoxKey.landscapeMode, landscapeMode);
+    if (landscapeMode == 0) {
+      await resetScreenRotation();
+    } else {
+      await changeOrientation(
+        isVertical: false,
+        orientation: landscapeMode == 1
+            ? DeviceOrientation.landscapeLeft
+            : DeviceOrientation.landscapeRight,
+      );
+    }
   }
 
   // 全屏

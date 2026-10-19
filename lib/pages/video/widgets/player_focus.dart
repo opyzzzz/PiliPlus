@@ -13,7 +13,6 @@ import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:flutter/services.dart'
     show
-      DeviceOrientation,
       HardwareKeyboard,
       KeyDownEvent,
       KeyUpEvent,
@@ -330,19 +329,15 @@ class PlayerFocus extends StatelessWidget {
         return true;
 
       case ShortcutAction.landscapeDisable:
-        plPlayerController.setShortcutLandscapeMode(null);
+        plPlayerController.setShortcutLandscapeMode(0);
         return true;
 
       case ShortcutAction.landscapeForward:
-        plPlayerController.setShortcutLandscapeMode(
-          DeviceOrientation.landscapeLeft,
-        );
+        plPlayerController.setShortcutLandscapeMode(1);
         return true;
 
       case ShortcutAction.landscapeReverse:
-        plPlayerController.setShortcutLandscapeMode(
-          DeviceOrientation.landscapeRight,
-        );
+        plPlayerController.setShortcutLandscapeMode(2);
         return true;
 
       case ShortcutAction.comboA:

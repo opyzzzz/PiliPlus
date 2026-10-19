@@ -10,6 +10,46 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
+const List<ShortcutAction> _shortcutActionsInDisplayOrder = [
+  // 播放控制
+  ShortcutAction.playPause,
+  ShortcutAction.mute,
+  ShortcutAction.refreshStream,
+  // 音量与进度
+  ShortcutAction.volumeUp,
+  ShortcutAction.volumeDown,
+  ShortcutAction.seekBackward,
+  ShortcutAction.seekForward,
+  // 倍速与选集
+  ShortcutAction.speedDown,
+  ShortcutAction.speedUp,
+  ShortcutAction.speedReset,
+  ShortcutAction.prevEpisode,
+  ShortcutAction.nextEpisode,
+  // 画面显示与横屏模式
+  ShortcutAction.fullscreen,
+  ShortcutAction.inAppFullscreen,
+  ShortcutAction.landscapeDisable,
+  ShortcutAction.landscapeForward,
+  ShortcutAction.landscapeReverse,
+  ShortcutAction.desktopPip,
+  ShortcutAction.screenshot,
+  ShortcutAction.lockControls,
+  // 弹幕
+  ShortcutAction.toggleDanmaku,
+  ShortcutAction.sendDanmaku,
+  // 互动
+  ShortcutAction.likeTriple,
+  ShortcutAction.coin,
+  ShortcutAction.fav,
+  ShortcutAction.watchLater,
+  ShortcutAction.relationMod,
+  // 循环组合
+  ShortcutAction.comboA,
+  ShortcutAction.comboB,
+  ShortcutAction.comboC,
+];
+
 final List<SettingsModel> shortcutSettings = [
   const SwitchModel(
     title: '启用键盘控制',
@@ -18,7 +58,7 @@ final List<SettingsModel> shortcutSettings = [
     setKey: SettingBoxKey.keyboardControl,
     defaultVal: true,
   ),
-  for (final action in ShortcutAction.values)
+  for (final action in _shortcutActionsInDisplayOrder)
     if (!action.desktopOnly || PlatformUtils.isDesktop)
       NormalModel(
         leading: const Icon(Icons.keyboard_outlined),
