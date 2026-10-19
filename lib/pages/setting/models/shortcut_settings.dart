@@ -10,46 +10,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
-const List<ShortcutAction> _shortcutActionsInDisplayOrder = [
-  // 播放控制
-  ShortcutAction.playPause,
-  ShortcutAction.mute,
-  ShortcutAction.refreshStream,
-  // 音量与进度
-  ShortcutAction.volumeUp,
-  ShortcutAction.volumeDown,
-  ShortcutAction.seekBackward,
-  ShortcutAction.seekForward,
-  // 倍速与选集
-  ShortcutAction.speedDown,
-  ShortcutAction.speedUp,
-  ShortcutAction.speedReset,
-  ShortcutAction.prevEpisode,
-  ShortcutAction.nextEpisode,
-  // 画面显示与横屏模式
-  ShortcutAction.fullscreen,
-  ShortcutAction.inAppFullscreen,
-  ShortcutAction.landscapeDisable,
-  ShortcutAction.landscapeForward,
-  ShortcutAction.landscapeReverse,
-  ShortcutAction.desktopPip,
-  ShortcutAction.screenshot,
-  ShortcutAction.lockControls,
-  // 弹幕
-  ShortcutAction.toggleDanmaku,
-  ShortcutAction.sendDanmaku,
-  // 互动
-  ShortcutAction.likeTriple,
-  ShortcutAction.coin,
-  ShortcutAction.fav,
-  ShortcutAction.watchLater,
-  ShortcutAction.relationMod,
-  // 循环组合
-  ShortcutAction.comboA,
-  ShortcutAction.comboB,
-  ShortcutAction.comboC,
-];
-
 final List<SettingsModel> shortcutSettings = [
   const SwitchModel(
     title: '启用键盘控制',
@@ -58,7 +18,7 @@ final List<SettingsModel> shortcutSettings = [
     setKey: SettingBoxKey.keyboardControl,
     defaultVal: true,
   ),
-  for (final action in _shortcutActionsInDisplayOrder)
+  for (final action in ShortcutService.displayOrder)
     if (!action.desktopOnly || PlatformUtils.isDesktop)
       NormalModel(
         leading: const Icon(Icons.keyboard_outlined),
@@ -168,12 +128,13 @@ class _ComboActionDialogState extends State<_ComboActionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final available = ShortcutAction.values
+    final available = ShortcutService.displayOrder
         .where((action) =>
             action != ShortcutAction.comboA &&
             action != ShortcutAction.comboB &&
             action != ShortcutAction.comboC &&
-            !action.isHold)
+            !action.isHold &&
+            ShortcutService.isActionEligible(action, isLive: false))
         .toList();
     return AlertDialog(
       constraints: Style.dialogFixedConstraints,
@@ -322,6 +283,10 @@ class _CaptureContentState extends State<_CaptureContent> {
       return KeyEventResult.handled;
     }
     final binding = ShortcutService.currentBinding(key);
+    if (ShortcutService.isReservedBinding(binding)) {
+      setState(() => _error = '该组合由系统或窗口操作保留，请换一个键');
+      return KeyEventResult.handled;
+    }
     final conflict = ShortcutService.conflictOf(widget.action, binding);
     if (conflict != null) {
       setState(() => _error = '与「${conflict.title}」冲突，请换一个键');

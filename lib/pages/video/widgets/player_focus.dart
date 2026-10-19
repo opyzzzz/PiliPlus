@@ -40,25 +40,24 @@ class PlayerFocus extends StatelessWidget {
   final ValueGetter<bool>? onSkipSegment;
   final VoidCallback? onRefresh;
 
-  static bool _shouldHandle(LogicalKeyboardKey logicalKey) {
-    return logicalKey == LogicalKeyboardKey.tab ||
-        logicalKey == LogicalKeyboardKey.arrowLeft ||
-        logicalKey == LogicalKeyboardKey.arrowRight ||
-        logicalKey == LogicalKeyboardKey.arrowUp ||
-        logicalKey == LogicalKeyboardKey.arrowDown;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Focus(
       autofocus: true,
-      onKeyEvent: (node, event) {
-        final handled = _handleKey(context, event);
-        if (handled || _shouldHandle(event.logicalKey)) {
-          return KeyEventResult.handled;
+      onFocusChange: (hasFocus) {
+        if (!hasFocus) {
+          ShortcutService.releaseAllPressedActions();
+          plPlayerController
+            ..cancelLongPressTimer()
+            ..setLongPressStatus(false);
+          if (introController?.isTripling ?? false) {
+            introController!.onCancelTriple(true);
+          }
         }
-        return KeyEventResult.ignored;
       },
+      onKeyEvent: (node, event) => _handleKey(context, event)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored,
       child: child,
     );
   }
@@ -344,7 +343,13 @@ class PlayerFocus extends StatelessWidget {
       case ShortcutAction.comboB:
       case ShortcutAction.comboC:
         final next = ShortcutService.nextComboAction(action);
-        if (next != null) _dispatch(context, next, event);
+        if (next != null &&
+            ShortcutService.isActionEligible(
+              next,
+              isLive: plPlayerController.isLive,
+            )) {
+          _dispatch(context, next, event);
+        }
         return true;
 
       case ShortcutAction.prevEpisode:

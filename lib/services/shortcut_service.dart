@@ -4,7 +4,7 @@ import 'package:PiliPlus/plugin/pl_player/models/shortcut_action.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/services.dart'
-    show HardwareKeyboard, KeyEvent, LogicalKeyboardKey;
+    show HardwareKeyboard, KeyEvent, KeyUpEvent, LogicalKeyboardKey;
 
 /// 播放器快捷键：自定义绑定的存取、按键匹配与跨平台显示。
 ///
@@ -30,12 +30,40 @@ abstract final class ShortcutService {
 
   static bool isModifier(LogicalKeyboardKey key) => _modifierKeys.contains(key);
 
+  static final Map<LogicalKeyboardKey, ShortcutAction> _pressedActions = {};
+
+  static bool isActionEligible(ShortcutAction action, {required bool isLive}) =>
+      action.context.applies(isLive) &&
+      (!action.desktopOnly || PlatformUtils.isDesktop);
+
+  static bool isReservedBinding(KeyBinding binding) =>
+      binding.meta &&
+      (binding.key == LogicalKeyboardKey.keyQ ||
+          binding.key == LogicalKeyboardKey.keyR);
+
+  static const List<ShortcutAction> displayOrder = [
+    ShortcutAction.playPause, ShortcutAction.mute, ShortcutAction.refreshStream,
+    ShortcutAction.volumeUp, ShortcutAction.volumeDown, ShortcutAction.seekBackward,
+    ShortcutAction.seekForward, ShortcutAction.speedDown, ShortcutAction.speedUp,
+    ShortcutAction.speedReset, ShortcutAction.prevEpisode, ShortcutAction.nextEpisode,
+    ShortcutAction.fullscreen, ShortcutAction.inAppFullscreen,
+    ShortcutAction.landscapeDisable, ShortcutAction.landscapeForward,
+    ShortcutAction.landscapeReverse, ShortcutAction.desktopPip,
+    ShortcutAction.screenshot, ShortcutAction.lockControls, ShortcutAction.toggleDanmaku,
+    ShortcutAction.sendDanmaku, ShortcutAction.likeTriple, ShortcutAction.coin,
+    ShortcutAction.fav, ShortcutAction.watchLater, ShortcutAction.relationMod,
+    ShortcutAction.comboA, ShortcutAction.comboB, ShortcutAction.comboC,
+  ];
+
+  static void releaseAllPressedActions() => _pressedActions.clear();
+
   /// 当前生效的绑定：自定义优先，否则用默认值（已清除的动作为 null）
   static KeyBinding? bindingOf(ShortcutAction action) {
     final custom = Pref.customKeyBindings[action.name];
     if (custom == null) return action.defaultBinding;
     if (custom == 'none') return null;
-    return KeyBinding.fromJson(custom) ?? action.defaultBinding;
+    final binding = KeyBinding.fromJson(custom) ?? action.defaultBinding;
+    return isReservedBinding(binding) ? null : binding;
   }
 
   static bool isCustomized(ShortcutAction action) =>
@@ -43,11 +71,20 @@ abstract final class ShortcutService {
 
   /// 按当前按下的键（含修饰键）匹配动作；未绑定或无匹配返回 null
   static ShortcutAction? matchAction(KeyEvent event, {required bool isLive}) {
-    final binding = currentBinding(event.logicalKey);
+    final key = event.logicalKey;
+    if (event is KeyUpEvent) return _pressedActions.remove(key);
+
+    final pressed = _pressedActions[key];
+    if (pressed != null) return pressed;
+
+    final binding = currentBinding(key);
+    if (isReservedBinding(binding)) return null;
     for (final action in ShortcutAction.values) {
-      if (!action.context.applies(isLive)) continue;
-      if (action.desktopOnly && !PlatformUtils.isDesktop) continue;
-      if (bindingOf(action) == binding) return action;
+      if (!isActionEligible(action, isLive: isLive)) continue;
+      if (bindingOf(action) == binding) {
+        _pressedActions[key] = action;
+        return action;
+      }
     }
     return null;
   }
@@ -65,6 +102,7 @@ abstract final class ShortcutService {
 
   /// 检测绑定冲突：同上下文（且同平台可见）的其他动作已占用该键位时返回对方
   static ShortcutAction? conflictOf(ShortcutAction action, KeyBinding binding) {
+    if (isReservedBinding(binding)) return action;
     for (final other in ShortcutAction.values) {
       if (other == action) continue;
       if (!action.context.overlaps(other.context)) continue;
@@ -76,6 +114,7 @@ abstract final class ShortcutService {
 
   /// 保存自定义绑定；与默认一致时直接移除自定义记录
   static void setBinding(ShortcutAction action, KeyBinding binding) {
+    if (isReservedBinding(binding)) return;
     final map = Pref.customKeyBindings;
     if (binding == action.defaultBinding) {
       map.remove(action.name);
@@ -99,15 +138,23 @@ abstract final class ShortcutService {
   }
 
   /// 读取循环组合中的动作序列。仅允许普通单次动作，避免长按动作缺少 KeyUp 配对。
-  static List<ShortcutAction> comboActionsOf(ShortcutAction combo) {
-    if (!_isCombo(combo)) return const [];
+  static List<ShortcutAction> comboActionsOf(
+    ShortcutAction combo, {
+    bool isLive = false,
+  }) {
+    if (!_isCombo(combo) || !isActionEligible(combo, isLive: isLive)) {
+      return const [];
+    }
     final raw = Pref.customKeyBindings['${combo.name}_actions'];
     if (raw is! List) return const [];
     return [
       for (final name in raw)
         if (name is String)
           for (final action in ShortcutAction.values)
-            if (action.name == name && !_isCombo(action) && !action.isHold)
+            if (action.name == name &&
+                !_isCombo(action) &&
+                !action.isHold &&
+                isActionEligible(action, isLive: isLive))
               action,
     ];
   }
@@ -120,11 +167,15 @@ abstract final class ShortcutService {
 
   static void setComboActions(
     ShortcutAction combo,
-    List<ShortcutAction> actions,
-  ) {
-    if (!_isCombo(combo)) return;
+    List<ShortcutAction> actions, {
+    bool isLive = false,
+  }) {
+    if (!_isCombo(combo) || !isActionEligible(combo, isLive: isLive)) return;
     final valid = actions
-        .where((action) => !_isCombo(action) && !action.isHold)
+        .where((action) =>
+            !_isCombo(action) &&
+            !action.isHold &&
+            isActionEligible(action, isLive: isLive))
         .toList();
     final map = Pref.customKeyBindings;
     map['${combo.name}_actions'] = valid.map((action) => action.name).toList();
