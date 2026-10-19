@@ -77,9 +77,19 @@ abstract final class MediaKeyShortcutBridge {
     _ => null,
   };
 
+  static bool _handleGlobalKeyEvent(KeyEvent event) {
+    if (ShortcutService.isRestrictedKey(event.logicalKey)) {
+      JsonFileHandler.addDiagnostic('hardware-keyboard global handler event=${event.runtimeType} key=${event.logicalKey.keyLabel}');
+    }
+    // Diagnostic observer only: do not consume or alter normal key routing.
+    return false;
+  }
+
   static void _installHandler() {
     if (_handlerInstalled) return;
     _handlerInstalled = true;
+    HardwareKeyboard.instance.addHandler(_handleGlobalKeyEvent);
+    JsonFileHandler.addDiagnostic('bridge installed HardwareKeyboard global diagnostic handler');
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'diagnostic') {
         final message = call.arguments as String?;

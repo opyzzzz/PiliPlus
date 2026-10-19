@@ -68,6 +68,7 @@ class PlayerFocus extends StatelessWidget {
         return KeyEventResult.ignored;
       },
       onFocusChange: (hasFocus) {
+        JsonFileHandler.addDiagnostic('player-focus focusChange hasFocus=$hasFocus');
         if (!hasFocus) _clearActiveKeyState();
       },
       child: child,
@@ -207,6 +208,9 @@ class PlayerFocus extends StatelessWidget {
       event,
       isLive: plPlayerController.isLive,
     );
+    if (ShortcutService.isRestrictedKey(key)) {
+      JsonFileHandler.addDiagnostic('player-focus matchAction event=${event.runtimeType} key=${key.keyLabel} action=${action?.name ?? 'null'}');
+    }
     if (action == null) {
       if (event is KeyDownEvent && (introController?.isTripling ?? false)) {
         introController!.onCancelTriple();
