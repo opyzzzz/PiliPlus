@@ -5,6 +5,7 @@ import 'package:PiliPlus/http/member.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/member/tab_type.dart';
+import 'package:PiliPlus/models/common/member/contribute_type.dart';
 import 'package:PiliPlus/models/model_owner.dart';
 import 'package:PiliPlus/models_new/space/space/data.dart';
 import 'package:PiliPlus/models_new/space/space/elec.dart';
@@ -137,6 +138,14 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
             return item.param == data.defaultTab;
           });
         }
+        if (fromViewAid?.isNotEmpty == true) {
+          final contributeIndex = tab2!.indexWhere(
+            (item) => item.param == 'contribute',
+          );
+          if (contributeIndex != -1) {
+            initialIndex = contributeIndex;
+          }
+        }
         tabs = tab2!
             .map(
               (item) => Tab(
@@ -154,6 +163,9 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
           length: tabs.length,
           initialIndex: max(0, initialIndex),
         );
+        if (fromViewAid?.isNotEmpty == true) {
+          Future<void>.microtask(_locateLastViewedCategory);
+        }
       }
     }
     if (mid == account.mid) {
@@ -262,6 +274,96 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
         isFollow: isFollow,
         afterMod: (attribute) => relation.value = attribute,
       );
+    }
+  }
+
+  bool _isLocatingLastViewedCategory = false;
+
+  Future<void> _locateLastViewedCategory() async {
+    if (_isLocatingLastViewedCategory || isClosed) return;
+    final target = fromViewAid;
+    final contributeIndex = tab2?.indexWhere(
+      (item) => item.param == 'contribute',
+    ) ?? -1;
+    if (target == null || target.isEmpty || contributeIndex < 0) return;
+
+    _isLocatingLastViewedCategory = true;
+    final contributeItems = tab2![contributeIndex].items ?? const [];
+    final categories = <({ContributeType type, int id, int index})>[];
+    final seenCategories = <String>{};
+
+    void addCategory(ContributeType type, int? id, int index) {
+      if (id == null) return;
+      final key = '${type.name}:$id';
+      if (seenCategories.add(key)) {
+        categories.add((type: type, id: id, index: index));
+      }
+    }
+
+    for (var i = 0; i < contributeItems.length; i++) {
+      final item = contributeItems[i];
+      addCategory(
+        item.seasonId != null ? ContributeType.season : ContributeType.series,
+        item.seasonId ?? item.seriesId,
+        i,
+      );
+      for (final nested in item.items ?? const []) {
+        addCategory(
+          nested.seasonId != null
+              ? ContributeType.season
+              : ContributeType.series,
+          nested.seasonId ?? nested.seriesId,
+          i,
+        );
+      }
+    }
+
+    var locatedCategory = false;
+    try {
+      for (final category in categories) {
+        int? cursor;
+        final visitedCursors = <int>{};
+        while (!isClosed) {
+          final state = await MemberHttp.spaceArchive(
+            type: category.type,
+            mid: mid,
+            seasonId: category.type == .season ? category.id : null,
+            seriesId: category.type == .series ? category.id : null,
+            next: cursor,
+          );
+          if (state case Success(:final response)) {
+            final found = response.item?.any(
+                  (item) => item.param == target || item.bvid == target,
+                ) ??
+                false;
+            if (found) {
+              contributeInitialIndex.value = category.index;
+              locatedCategory = true;
+              return;
+            }
+            final nextCursor = response.next;
+            if (nextCursor == null ||
+                nextCursor == 0 ||
+                !visitedCursors.add(nextCursor)) {
+              break;
+            }
+            cursor = nextCursor;
+          } else {
+            break;
+          }
+        }
+      }
+    } finally {
+      if (!isClosed) {
+        final videoIndex = contributeItems.indexWhere(
+          (item) => item.param == 'video',
+        );
+        if (!locatedCategory && videoIndex >= 0) {
+          contributeInitialIndex.value = videoIndex;
+        }
+        tabController?.animateTo(contributeIndex);
+      }
+      _isLocatingLastViewedCategory = false;
     }
   }
 

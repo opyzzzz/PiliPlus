@@ -14,6 +14,7 @@ import 'package:PiliPlus/pages/member_video/controller.dart';
 import 'package:PiliPlus/pages/member_video/widgets/video_card_h_member_video.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -87,6 +88,72 @@ class _MemberVideoState extends State<MemberVideo>
     );
   }
 
+  int _findLocateTargetIndex() {
+    final target = _controller.fromViewAid;
+    if (target == null || target.isEmpty) return -1;
+    return _controller.loadingState.value.dataOrNull?.indexWhere(
+          (item) => item.param == target || item.bvid == target,
+        ) ??
+        -1;
+  }
+
+  Future<void> _locateSeriesTarget() async {
+    _controller
+      ..setIsLocating(true, isOnlyInnerScroll: false)
+      ..isLoadPrevious = false
+      ..firstAid = null
+      ..lastAid = null
+      ..next = null
+      ..isEnd = false
+      ..page = 0
+      ..reload = true
+      ..loadingState.value = LoadingState.loading();
+
+    await _controller.queryData();
+    while (mounted && _controller.isLocating) {
+      final index = _findLocateTargetIndex();
+      if (index >= 0) {
+        _controller.setIsLocating(false, isOnlyInnerScroll: false);
+        await WidgetsBinding.instance.endOfFrame;
+        if (mounted) _jumpToIndex(index);
+        return;
+      }
+
+      if (_controller.isEnd ||
+          _controller.loadingState.value is Error ||
+          _controller.next == 0) {
+        break;
+      }
+
+      final previousNext = _controller.next;
+      _controller.page = 1;
+      await _controller.queryData(false);
+      if (_controller.next == previousNext) break;
+    }
+
+    _controller.setIsLocating(false, isOnlyInnerScroll: false);
+  }
+
+  Future<void> _onLocatePressed() async {
+    final index = _findLocateTargetIndex();
+    if (index >= 0) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted) _jumpToIndex(index);
+      return;
+    }
+    if (_controller.isSeries) {
+      await _locateSeriesTarget();
+      return;
+    }
+    _controller
+      ..setIsLocating(true)
+      ..lastAid = _controller.fromViewAid
+      ..reload = true
+      ..page = 0
+      ..loadingState.value = LoadingState.loading();
+    _controller.queryData();
+  }
+
   Future<void> _loadPrevAndKeepPos() async {
     assert(_controller.hasPrev! && _controller.isLoadPrevious);
     final lastCount = _controller.loadingState.value.dataOrNull?.length;
@@ -128,7 +195,7 @@ class _MemberVideoState extends State<MemberVideo>
     if (notification is UserScrollNotification) {
       return super.onNotification(notification);
     }
-    if (_controller.isLocating) {
+    if (_controller.isLocating && _controller.isVideo) {
       if (notification is ScrollEndNotification &&
           notification.metrics.pixels == 0) {
         final fromViewAid = _controller.fromViewAid;
@@ -167,7 +234,8 @@ class _MemberVideoState extends State<MemberVideo>
         ),
       ],
     );
-    if (_controller.isVideo && _controller.fromViewAid?.isNotEmpty == true) {
+    if ((_controller.isVideo || _controller.isSeries) &&
+        _controller.fromViewAid?.isNotEmpty == true) {
       child = ScaffoldLayout(
         body: fabAnimWrapper(child: child),
         fab: Obx(
@@ -180,30 +248,7 @@ class _MemberVideoState extends State<MemberVideo>
                       bottom: kFloatingActionButtonMargin + padding.bottom,
                     ),
                     child: FloatingActionButton.extended(
-                      onPressed: () {
-                        final fromViewAid = _controller.fromViewAid;
-                        final locatedIndex =
-                            _controller.loadingState.value.dataOrNull
-                                ?.indexWhere(
-                                  (i) => i.param == fromViewAid,
-                                ) ??
-                            -1;
-                        if (locatedIndex == -1) {
-                          _controller
-                            ..setIsLocating(true)
-                            ..lastAid = fromViewAid
-                            ..reload = true
-                            ..page = 0
-                            ..loadingState.value = LoadingState.loading()
-                            ..queryData();
-                        } else {
-                          _controller.setIsLocating(
-                            true,
-                            isOnlyInnerScroll: false,
-                          );
-                          _jumpToIndex(locatedIndex);
-                        }
-                      },
+                      onPressed: _onLocatePressed,
                       label: const Text('定位至上次观看'),
                     ),
                   ),
