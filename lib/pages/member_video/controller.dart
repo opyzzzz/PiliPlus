@@ -36,6 +36,7 @@ class MemberVideoCtr
   final String? heroTag;
   final ContributeType type;
   final bool isVideo;
+  bool get isSeries => type == .series;
   int? seasonId;
   int? seriesId;
   final int mid;
@@ -88,7 +89,7 @@ class MemberVideoCtr
   @override
   void onInit() {
     super.onInit();
-    if (isVideo) {
+    if (isVideo || isSeries) {
       fromViewAid = Get.parameters['from_view_aid'];
       if (fromViewAid?.isNotEmpty ?? false) {
         refreshKey = GlobalKey();
