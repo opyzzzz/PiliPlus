@@ -98,6 +98,22 @@ class _MemberVideoState extends State<MemberVideo>
   }
 
   Future<void> _locateSeriesTarget() async {
+    // The category's first page is requested when MemberVideoCtr is created.
+    // Wait for that request to finish before starting a fresh locate request;
+    // queryData() silently returns while isLoading is true.
+    while (mounted && _controller.isLoading) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    if (!mounted) return;
+
+    // The initial request may already have loaded the target while we waited.
+    final loadedIndex = _findLocateTargetIndex();
+    if (loadedIndex >= 0) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted) _jumpToIndex(loadedIndex);
+      return;
+    }
+
     _controller
       ..setIsLocating(true, isOnlyInnerScroll: false)
       ..isLoadPrevious = false
