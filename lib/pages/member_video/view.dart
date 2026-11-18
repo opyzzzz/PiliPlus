@@ -52,6 +52,9 @@ class _MemberVideoState extends State<MemberVideo>
   bool get wantKeepAlive => true;
 
   late final MemberVideoCtr _controller;
+  Worker? _replayLocateWorker;
+  Worker? _loadingWorker;
+  bool _waitingForReplayData = false;
 
   void _jumpToIndex(int index) {
     final scrollOffset = gridDelegate.layoutCache!
@@ -72,6 +75,7 @@ class _MemberVideoState extends State<MemberVideo>
   @override
   void initState() {
     super.initState();
+    final memberController = Get.find<MemberController>(tag: widget.heroTag);
     _controller = Get.put(
       MemberVideoCtr(
         heroTag: widget.heroTag,
@@ -79,12 +83,77 @@ class _MemberVideoState extends State<MemberVideo>
         mid: widget.mid,
         seasonId: widget.seasonId,
         seriesId: widget.seriesId,
-        username: Get.find<MemberController>(tag: widget.heroTag).username,
+        username: memberController.username,
         title: widget.title,
       ),
       tag:
           '${widget.heroTag}${widget.type.name}${widget.seasonId}${widget.seriesId}',
     );
+    if (widget.type == .series && _controller.fromViewAid?.isNotEmpty == true) {
+      _replayLocateWorker = ever(
+        memberController.replaySeriesToLocate,
+        (seriesId) {
+          if (seriesId == widget.seriesId) _locateWhenReady();
+        },
+      );
+      if (memberController.replaySeriesToLocate.value == widget.seriesId) {
+        _locateWhenReady();
+      }
+    }
+  }
+
+  void _locateWhenReady() {
+    if (_waitingForReplayData || !mounted) return;
+    final state = _controller.loadingState.value;
+    if (state is Success) {
+      _waitingForReplayData = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startLocate();
+      });
+      return;
+    }
+    _waitingForReplayData = true;
+    _loadingWorker = ever(_controller.loadingState, (state) {
+      if (state is Success) {
+        _loadingWorker?.dispose();
+        _loadingWorker = null;
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _startLocate();
+          });
+        }
+      }
+    });
+  }
+
+  void _startLocate() {
+    final fromViewAid = _controller.fromViewAid;
+    final locatedIndex =
+        _controller.loadingState.value.dataOrNull?.indexWhere(
+          (item) => item.param == fromViewAid || item.bvid == fromViewAid,
+        ) ??
+        -1;
+    if (locatedIndex == -1) {
+      _controller
+        ..setIsLocating(true)
+        ..lastAid = fromViewAid
+        ..reload = true
+        ..page = 0
+        ..loadingState.value = LoadingState.loading()
+        ..queryData();
+    } else {
+      _controller.setIsLocating(true, isOnlyInnerScroll: false);
+      _jumpToIndex(locatedIndex);
+    }
+    Get.find<MemberController>(tag: widget.heroTag)
+        .replaySeriesToLocate.value = 0;
+  }
+
+  @override
+  void dispose() {
+    _replayLocateWorker?.dispose();
+    _loadingWorker?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPrevAndKeepPos() async {
@@ -149,7 +218,7 @@ class _MemberVideoState extends State<MemberVideo>
         ),
       ],
     );
-    if (_controller.isVideo && _controller.fromViewAid?.isNotEmpty == true) {
+    if (_controller.fromViewAid?.isNotEmpty == true) {
       child = ScaffoldLayout(
         body: fabAnimWrapper(child: child),
         fab: Obx(
@@ -162,29 +231,14 @@ class _MemberVideoState extends State<MemberVideo>
                       bottom: kFloatingActionButtonMargin + padding.bottom,
                     ),
                     child: FloatingActionButton.extended(
-                      onPressed: () {
-                        final fromViewAid = _controller.fromViewAid;
-                        final locatedIndex =
-                            _controller.loadingState.value.dataOrNull
-                                ?.indexWhere(
-                                  (i) => i.param == fromViewAid,
-                                ) ??
-                            -1;
-                        if (locatedIndex == -1) {
-                          _controller
-                            ..setIsLocating(true)
-                            ..lastAid = fromViewAid
-                            ..reload = true
-                            ..page = 0
-                            ..loadingState.value = LoadingState.loading()
-                            ..queryData();
-                        } else {
-                          _controller.setIsLocating(
-                            true,
-                            isOnlyInnerScroll: false,
-                          );
-                          _jumpToIndex(locatedIndex);
+                      onPressed: () async {
+                        if (_controller.isVideo &&
+                            await Get.find<MemberController>(
+                              tag: widget.heroTag,
+                            ).selectReplaySeries()) {
+                          return;
                         }
+                        _startLocate();
                       },
                       label: const Text('定位至上次观看'),
                     ),
