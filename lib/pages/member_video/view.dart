@@ -94,7 +94,16 @@ class _MemberVideoState extends State<MemberVideo>
     if (mounted) {
       final newCount = _controller.loadingState.value.dataOrNull?.length;
       if (lastCount != null && newCount != null && newCount > lastCount) {
-        _jumpToIndex(newCount - lastCount);
+        final fromViewAid = _controller.fromViewAid;
+        final locatedIndex = _controller.loadingState.value.dataOrNull
+                ?.indexWhere((i) => i.param == fromViewAid) ??
+            -1;
+        if (_controller.isLocating && locatedIndex != -1) {
+          _controller.setIsLocating(false, isOnlyInnerScroll: false);
+          _jumpToIndex(locatedIndex);
+        } else {
+          _jumpToIndex(newCount - lastCount);
+        }
       }
     }
   }
