@@ -232,6 +232,19 @@ class _MemberVideoState extends State<MemberVideo>
                     ),
                     child: FloatingActionButton.extended(
                       onPressed: () async {
+                        final fromViewAid = _controller.fromViewAid;
+                        final locatedIndex =
+                            _controller.loadingState.value.dataOrNull
+                                ?.indexWhere(
+                                  (item) =>
+                                      item.param == fromViewAid ||
+                                      item.bvid == fromViewAid,
+                                ) ??
+                            -1;
+                        if (locatedIndex != -1) {
+                          _startLocate();
+                          return;
+                        }
                         if (_controller.isVideo &&
                             await Get.find<MemberController>(
                               tag: widget.heroTag,
