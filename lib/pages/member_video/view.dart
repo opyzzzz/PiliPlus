@@ -126,6 +126,7 @@ class _MemberVideoState extends State<MemberVideo>
       }
 
       final previousNext = _controller.next;
+      _controller.page = 1;
       await _controller.queryData(false);
       if (_controller.next == previousNext) break;
     }
