@@ -149,7 +149,7 @@ class _MemberVideoState extends State<MemberVideo>
         ),
       ],
     );
-    if (_controller.isVideo && _controller.fromViewAid?.isNotEmpty == true) {
+    if (_controller.fromViewAid?.isNotEmpty == true) {
       child = ScaffoldLayout(
         body: fabAnimWrapper(child: child),
         fab: Obx(

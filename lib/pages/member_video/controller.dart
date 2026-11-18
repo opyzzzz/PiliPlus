@@ -88,11 +88,9 @@ class MemberVideoCtr
   @override
   void onInit() {
     super.onInit();
-    if (isVideo) {
-      fromViewAid = Get.parameters['from_view_aid'];
-      if (fromViewAid?.isNotEmpty ?? false) {
-        refreshKey = GlobalKey();
-      }
+    fromViewAid = Get.parameters['from_view_aid'];
+    if (fromViewAid?.isNotEmpty ?? false) {
+      refreshKey = GlobalKey();
     }
     page = 0;
     queryData();
@@ -141,7 +139,9 @@ class MemberVideoCtr
       MemberHttp.spaceArchive(
         type: type,
         mid: mid,
-        aid: isVideo
+        aid: isLocating
+            ? fromViewAid
+            : isVideo
             ? isLoadPrevious
                   ? firstAid
                   : lastAid

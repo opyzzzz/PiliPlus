@@ -5,6 +5,7 @@ import 'package:PiliPlus/http/member.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/member/tab_type.dart';
+import 'package:PiliPlus/models/common/member/contribute_type.dart';
 import 'package:PiliPlus/models/model_owner.dart';
 import 'package:PiliPlus/models_new/space/space/data.dart';
 import 'package:PiliPlus/models_new/space/space/elec.dart';
@@ -63,6 +64,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   List<ReservationCardItem>? reserves;
 
   final fromViewAid = Get.parameters['from_view_aid'];
+  bool _locatingReplaySeries = false;
 
   final scrollKey = GlobalKey<ExtendedNestedScrollViewState>();
 
@@ -160,7 +162,54 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
       spaceSetting = data.setting;
     }
     loadingState.value = response;
+    if (fromViewAid?.isNotEmpty == true) {
+      Future<void>.microtask(_selectReplaySeries);
+    }
     return true;
+  }
+
+  Future<void> _selectReplaySeries() async {
+    if (_locatingReplaySeries || isClosed) return;
+    _locatingReplaySeries = true;
+    try {
+      final contributeIndex =
+          tab2?.indexWhere((item) => item.param == 'contribute') ?? -1;
+      if (contributeIndex < 0) return;
+      final items = tab2![contributeIndex].items ?? const [];
+      for (var i = 0; i < items.length; i++) {
+        final item = items[i];
+        final seriesId = item.seriesId;
+        if (item.param != 'series' || seriesId == null) continue;
+        int? cursor;
+        final visited = <int>{};
+        while (!isClosed) {
+          final state = await MemberHttp.spaceArchive(
+            type: ContributeType.series,
+            mid: mid,
+            seriesId: seriesId,
+            next: cursor,
+          );
+          if (state case Success(:final response)) {
+            if (response.item?.any(
+                  (video) =>
+                      video.param == fromViewAid || video.bvid == fromViewAid,
+                ) ??
+                false) {
+              contributeInitialIndex.value = i;
+              tabController?.animateTo(contributeIndex);
+              return;
+            }
+            final next = response.next;
+            if (next == null || next == 0 || !visited.add(next)) break;
+            cursor = next;
+          } else {
+            break;
+          }
+        }
+      }
+    } finally {
+      _locatingReplaySeries = false;
+    }
   }
 
   @override
