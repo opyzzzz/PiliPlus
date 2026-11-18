@@ -49,6 +49,20 @@ class _MemberContributeState extends State<MemberContribute>
   }
 
   @override
+  void didUpdateWidget(covariant MemberContribute oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final index = widget.initialIndex;
+    final controller = _controller.tabController;
+    if (index != null &&
+        index != oldWidget.initialIndex &&
+        controller != null &&
+        index >= 0 &&
+        index < controller.length) {
+      controller.index = index;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
