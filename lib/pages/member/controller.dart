@@ -318,6 +318,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
       }
     }
 
+    var locatedCategory = false;
     try {
       for (final category in categories) {
         int? cursor;
@@ -337,7 +338,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
                 false;
             if (found) {
               contributeInitialIndex.value = category.index;
-              tabController?.animateTo(contributeIndex);
+              locatedCategory = true;
               return;
             }
             final nextCursor = response.next;
@@ -357,7 +358,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
         final videoIndex = contributeItems.indexWhere(
           (item) => item.param == 'video',
         );
-        if (contributeInitialIndex.value == 0 && videoIndex >= 0) {
+        if (!locatedCategory && videoIndex >= 0) {
           contributeInitialIndex.value = videoIndex;
         }
         tabController?.animateTo(contributeIndex);
