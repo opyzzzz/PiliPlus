@@ -122,6 +122,15 @@ class _MemberVideoState extends State<MemberVideo>
     if (_controller.isLocating) {
       if (notification is ScrollEndNotification &&
           notification.metrics.pixels == 0) {
+        final fromViewAid = _controller.fromViewAid;
+        final locatedIndex = _controller.loadingState.value.dataOrNull
+                ?.indexWhere((i) => i.param == fromViewAid) ??
+            -1;
+        if (locatedIndex != -1) {
+          _controller.setIsLocating(false, isOnlyInnerScroll: false);
+          _jumpToIndex(locatedIndex);
+          return true;
+        }
         if (_controller.hasPrev == true && !_controller.isLoading) {
           _controller
             ..isLoadPrevious = true
