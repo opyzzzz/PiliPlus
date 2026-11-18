@@ -137,7 +137,6 @@ class _MemberVideoState extends State<MemberVideo>
   Future<void> _onLocatePressed() async {
     final index = _findLocateTargetIndex();
     if (index >= 0) {
-      _controller.setIsLocating(true, isOnlyInnerScroll: false);
       await WidgetsBinding.instance.endOfFrame;
       if (mounted) _jumpToIndex(index);
       return;
