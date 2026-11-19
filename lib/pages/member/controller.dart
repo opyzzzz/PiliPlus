@@ -171,6 +171,8 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
       return false;
     }
     _locatingReplaySeries = true;
+    SmartDialog.showToast('正在查找上次观看的直播回放…');
+    var requestFailed = false;
     try {
       final contributeIndex =
           tab2?.indexWhere((item) => item.param == 'contribute') ?? -1;
@@ -198,16 +200,26 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
               contributeInitialIndex.value = i;
               replaySeriesToLocate.value = seriesId;
               tabController?.animateTo(contributeIndex);
+              SmartDialog.showToast('已定位到上次观看的直播回放');
               return true;
             }
             final next = response.next;
             if (next == null || next == 0 || !visited.add(next)) break;
             cursor = next;
           } else {
+            requestFailed = true;
             break;
           }
         }
       }
+      SmartDialog.showToast(
+        requestFailed
+            ? '直播回放列表请求失败，定位未完成'
+            : '未找到上次观看的直播回放',
+      );
+      return false;
+    } catch (_) {
+      SmartDialog.showToast('直播回放定位失败，请稍后重试');
       return false;
     } finally {
       _locatingReplaySeries = false;
