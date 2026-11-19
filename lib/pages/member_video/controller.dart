@@ -29,6 +29,7 @@ class MemberVideoCtr
     required this.mid,
     required this.seasonId,
     required this.seriesId,
+    this.locateResult,
     this.username,
     this.title,
   }) : isVideo = type == .video;
@@ -46,10 +47,12 @@ class MemberVideoCtr
   EpisodicButton? episodicButton;
   final String? username;
   final String? title;
+  final MemberSeriesLocateResult? locateResult;
 
   String? firstAid;
   String? lastAid;
   String? fromViewAid;
+  bool isSeriesFallbackStarted = false;
   final RxBool _isLocating = false.obs;
   bool get isLocating => _isLocating.value;
   void setIsLocating(bool value, {bool isOnlyInnerScroll = true}) {
@@ -88,6 +91,10 @@ class MemberVideoCtr
   @override
   void onInit() {
     super.onInit();
+    if (locateResult != null) {
+      setLocateResult(locateResult!);
+      return;
+    }
     if (isVideo) {
       fromViewAid = Get.parameters['from_view_aid'];
       if (fromViewAid?.isNotEmpty ?? false) {
@@ -96,6 +103,14 @@ class MemberVideoCtr
     }
     page = 0;
     queryData();
+  }
+
+  void setLocateResult(MemberSeriesLocateResult result) {
+    page = result.page;
+    next = result.next;
+    isEnd = result.next == null || result.next == 0;
+    hasPrev = false;
+    loadingState.value = Success(result.videos);
   }
 
   @override

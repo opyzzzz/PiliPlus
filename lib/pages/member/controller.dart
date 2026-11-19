@@ -12,6 +12,7 @@ import 'package:PiliPlus/models_new/space/space/live.dart';
 import 'package:PiliPlus/models_new/space/space/reservation_card_list.dart';
 import 'package:PiliPlus/models_new/space/space/setting.dart';
 import 'package:PiliPlus/models_new/space/space/tab2.dart';
+import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/common/common_data_controller.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/nested_scroll_ext.dart';
@@ -23,6 +24,22 @@ import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+
+class MemberSeriesLocateResult {
+  const MemberSeriesLocateResult({
+    required this.item,
+    required this.videos,
+    required this.index,
+    required this.page,
+    required this.next,
+  });
+
+  final SpaceTab2Item item;
+  final List<SpaceArchiveItem> videos;
+  final int index;
+  final int page;
+  final int? next;
+}
 
 class MemberController extends CommonDataController<SpaceData, SpaceData?>
     with GetTickerProviderStateMixin {
@@ -191,6 +208,55 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
     mid: mid,
     fromViewAid: fromViewAid,
   );
+
+  Future<MemberSeriesLocateResult?> locateSeries(String aid) async {
+    final contribute = tab2?.where((item) => item.param == 'contribute');
+    final items = contribute?.isNotEmpty == true
+        ? contribute!.first.items
+        : null;
+    if (items == null) return null;
+
+    for (final item in items) {
+      if (item.param != 'series' || item.seriesId == null) continue;
+      int? cursor;
+      var page = 0;
+      final videos = <SpaceArchiveItem>[];
+      final visitedCursors = <int>{};
+      while (true) {
+        final res = await MemberHttp.spaceArchive(
+          type: .series,
+          mid: mid,
+          seriesId: item.seriesId,
+          next: cursor,
+        );
+        if (res case Success(:final response)) {
+          final pageItems = response.item ?? const <SpaceArchiveItem>[];
+          final index = pageItems.indexWhere(
+            (video) => video.param == aid || video.bvid == aid,
+          );
+          if (index >= 0) {
+            return MemberSeriesLocateResult(
+              item: item,
+              videos: [...videos, ...pageItems],
+              index: videos.length + index,
+              page: page,
+              next: response.next,
+            );
+          }
+          videos.addAll(pageItems);
+          final next = response.next;
+          if (next == null || next == 0 || !visitedCursors.add(next)) {
+            break;
+          }
+          cursor = next;
+          page++;
+        } else if (res case Error(:final errMsg)) {
+          throw StateError(errMsg ?? '系列视频扫描失败');
+        }
+      }
+    }
+    return null;
+  }
 
   void blockUser(BuildContext context) {
     if (!account.isLogin) {
