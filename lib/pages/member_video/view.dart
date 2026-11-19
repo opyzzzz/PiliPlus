@@ -14,6 +14,7 @@ import 'package:PiliPlus/pages/member_video/controller.dart';
 import 'package:PiliPlus/pages/member_video/widgets/video_card_h_member_video.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -56,19 +57,28 @@ class _MemberVideoState extends State<MemberVideo>
   Worker? _loadingWorker;
   bool _waitingForReplayData = false;
 
-  void _jumpToIndex(int index) {
-    final scrollOffset = gridDelegate.layoutCache!
-        .getGeometryForChildIndex(index)
-        .scrollOffset;
+  bool _jumpToIndex(int index) {
     try {
+      final layoutCache = gridDelegate.layoutCache;
+      if (layoutCache == null) return false;
+
+      final scrollOffset = layoutCache
+          .getGeometryForChildIndex(index)
+          .scrollOffset;
       final state = Get.find<MemberController>(
         tag: widget.heroTag,
       ).scrollKey.currentState;
-      if (state != null && state.mounted) {
-        state.innerNestedPositions.first.localJumpTo(scrollOffset);
+      if (state == null ||
+          !state.mounted ||
+          state.innerNestedPositions.isEmpty) {
+        return false;
       }
+
+      state.innerNestedPositions.first.localJumpTo(scrollOffset);
+      return true;
     } catch (e) {
       if (kDebugMode) debugPrint('jump error: $e');
+      return false;
     }
   }
 
@@ -126,27 +136,55 @@ class _MemberVideoState extends State<MemberVideo>
     });
   }
 
-  void _startLocate() {
-    final fromViewAid = _controller.fromViewAid;
-    final locatedIndex =
-        _controller.loadingState.value.dataOrNull?.indexWhere(
-          (item) => item.param == fromViewAid || item.bvid == fromViewAid,
+  int _findLocatedIndex(String aid) {
+    return _controller.loadingState.value.dataOrNull?.indexWhere(
+          (item) => item.param == aid || item.bvid == aid,
         ) ??
         -1;
+  }
+
+  Future<void> _startLocate() async {
+    final fromViewAid = _controller.fromViewAid;
+    if (fromViewAid == null || fromViewAid.isEmpty) return;
+
+    var locatedIndex = _findLocatedIndex(fromViewAid);
     if (locatedIndex == -1) {
       _controller
         ..setIsLocating(true)
         ..lastAid = fromViewAid
         ..reload = true
         ..page = 0
-        ..loadingState.value = LoadingState.loading()
-        ..queryData();
-    } else {
-      _controller.setIsLocating(true, isOnlyInnerScroll: false);
-      _jumpToIndex(locatedIndex);
+        ..next = null
+        ..loadingState.value = LoadingState.loading();
+
+      await _controller.queryData();
+      if (!mounted) return;
+
+      // queryData 更新了响应式数据；等待列表重建后再计算索引和滚动位置。
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      locatedIndex = _findLocatedIndex(fromViewAid);
     }
+
     Get.find<MemberController>(tag: widget.heroTag)
         .replaySeriesToLocate.value = 0;
+
+    if (locatedIndex == -1) {
+      _controller.setIsLocating(false);
+      SmartDialog.showToast('未能加载上次观看的视频，定位失败');
+      return;
+    }
+
+    _controller.setIsLocating(true, isOnlyInnerScroll: false);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+
+    if (_jumpToIndex(locatedIndex)) {
+      SmartDialog.showToast('已定位到上次观看的直播回放');
+    } else {
+      _controller.setIsLocating(false);
+      SmartDialog.showToast('视频已找到，但列表尚未就绪，请重试定位');
+    }
   }
 
   @override
