@@ -10,10 +10,13 @@ import 'package:PiliPlus/models/common/member/contribute_type.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/member/controller.dart';
+import 'package:PiliPlus/pages/member_contribute/controller.dart';
 import 'package:PiliPlus/pages/member_video/controller.dart';
 import 'package:PiliPlus/pages/member_video/widgets/video_card_h_member_video.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/scheduler.dart' show AnimationStatus;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -26,6 +29,7 @@ class MemberVideo extends StatefulWidget {
     this.seasonId,
     this.seriesId,
     this.title,
+    this.locateResult,
     this.isSingle = false,
   });
 
@@ -35,6 +39,7 @@ class MemberVideo extends StatefulWidget {
   final int? seasonId;
   final int? seriesId;
   final String? title;
+  final MemberSeriesLocateResult? locateResult;
   final bool isSingle;
 
   @override
@@ -69,6 +74,39 @@ class _MemberVideoState extends State<MemberVideo>
     }
   }
 
+  void _scheduleLocate(int index) {
+    final tabController = Get.find<MemberContributeCtr>(
+      tag: widget.heroTag,
+    ).tabController;
+    void jump() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _jumpToIndex(index);
+      });
+    }
+
+    if (tabController == null || !tabController.indexIsChanging) {
+      jump();
+    } else {
+      void onStatus(AnimationStatus status) {
+        if (status == AnimationStatus.completed) {
+          tabController.animation?.removeStatusListener(onStatus);
+          jump();
+        }
+      }
+      tabController.animation?.addStatusListener(onStatus);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MemberVideo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.locateResult != oldWidget.locateResult &&
+        widget.locateResult != null) {
+      _controller.setLocateResult(widget.locateResult!);
+      _scheduleLocate(widget.locateResult!.index);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -79,12 +117,16 @@ class _MemberVideoState extends State<MemberVideo>
         mid: widget.mid,
         seasonId: widget.seasonId,
         seriesId: widget.seriesId,
+        locateResult: widget.locateResult,
         username: Get.find<MemberController>(tag: widget.heroTag).username,
         title: widget.title,
       ),
       tag:
           '${widget.heroTag}${widget.type.name}${widget.seasonId}${widget.seriesId}',
     );
+    if (widget.locateResult case final result?) {
+      _scheduleLocate(result.index);
+    }
   }
 
   Future<void> _loadPrevAndKeepPos() async {

@@ -88,10 +88,14 @@ class _MemberContributeState extends State<MemberContribute>
                 ),
               ),
               Expanded(
-                child: TabBarView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  controller: _controller.tabController,
-                  children: _controller.items!.map(_getPageFromType).toList(),
+                child: Obx(
+                  () => TabBarView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    controller: _controller.tabController,
+                    children: _controller.items!
+                        .map(_getPageFromType)
+                        .toList(),
+                  ),
                 ),
               ),
             ],
@@ -147,6 +151,10 @@ class _MemberContributeState extends State<MemberContribute>
         mid: widget.mid,
         seriesId: item.seriesId,
         title: item.title,
+        locateResult:
+            _controller.locatingResult.value?.item.seriesId == item.seriesId
+            ? _controller.locatingResult.value
+            : null,
       ),
       'ugcSeason' => SeasonSeriesPage(
         mid: widget.mid,
