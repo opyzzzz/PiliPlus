@@ -18,6 +18,19 @@ class MemberContributeCtr extends GetxController
   List<Tab>? tabs;
   late final _ctr = Get.find<MemberController>(tag: heroTag);
   List<SpaceTab2Item>? items;
+  final Rxn<MemberSeriesLocateResult> locatingResult =
+      Rxn<MemberSeriesLocateResult>();
+
+  void locateSeries(MemberSeriesLocateResult result) {
+    final index = items?.indexWhere(
+          (item) => item.param == 'series' &&
+              item.seriesId == result.item.seriesId,
+        ) ??
+        -1;
+    if (index < 0) return;
+    locatingResult.value = result;
+    tabController?.animateTo(index);
+  }
 
   @override
   void onInit() {

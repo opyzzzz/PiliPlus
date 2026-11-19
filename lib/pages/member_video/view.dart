@@ -10,10 +10,14 @@ import 'package:PiliPlus/models/common/member/contribute_type.dart';
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
 import 'package:PiliPlus/pages/common/fab_mixin.dart';
 import 'package:PiliPlus/pages/member/controller.dart';
+import 'package:PiliPlus/pages/member_contribute/controller.dart';
 import 'package:PiliPlus/pages/member_video/controller.dart';
 import 'package:PiliPlus/pages/member_video/widgets/video_card_h_member_video.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/scheduler.dart' show AnimationStatus;
+import 'package:flutter/widgets.dart' show WidgetsBinding;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -26,6 +30,7 @@ class MemberVideo extends StatefulWidget {
     this.seasonId,
     this.seriesId,
     this.title,
+    this.locateResult,
     this.isSingle = false,
   });
 
@@ -35,6 +40,7 @@ class MemberVideo extends StatefulWidget {
   final int? seasonId;
   final int? seriesId;
   final String? title;
+  final MemberSeriesLocateResult? locateResult;
   final bool isSingle;
 
   @override
@@ -69,6 +75,39 @@ class _MemberVideoState extends State<MemberVideo>
     }
   }
 
+  void _scheduleLocate(int index) {
+    final tabController = Get.find<MemberContributeCtr>(
+      tag: widget.heroTag,
+    ).tabController;
+    void jump() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _jumpToIndex(index);
+      });
+    }
+
+    if (tabController == null || !tabController.indexIsChanging) {
+      jump();
+    } else {
+      void onStatus(AnimationStatus status) {
+        if (status == AnimationStatus.completed) {
+          tabController.animation?.removeStatusListener(onStatus);
+          jump();
+        }
+      }
+      tabController.animation?.addStatusListener(onStatus);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MemberVideo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.locateResult != oldWidget.locateResult &&
+        widget.locateResult != null) {
+      _controller.setLocateResult(widget.locateResult!);
+      _scheduleLocate(widget.locateResult!.index);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -79,12 +118,16 @@ class _MemberVideoState extends State<MemberVideo>
         mid: widget.mid,
         seasonId: widget.seasonId,
         seriesId: widget.seriesId,
+        locateResult: widget.locateResult,
         username: Get.find<MemberController>(tag: widget.heroTag).username,
         title: widget.title,
       ),
       tag:
           '${widget.heroTag}${widget.type.name}${widget.seasonId}${widget.seriesId}',
     );
+    if (widget.locateResult case final result?) {
+      _scheduleLocate(result.index);
+    }
   }
 
   Future<void> _loadPrevAndKeepPos() async {
@@ -96,7 +139,59 @@ class _MemberVideoState extends State<MemberVideo>
       if (lastCount != null && newCount != null && newCount > lastCount) {
         _jumpToIndex(newCount - lastCount);
       }
+      await _finishOriginalLocateIfNeeded();
     }
+  }
+
+  Future<void> _finishOriginalLocateIfNeeded() async {
+    if (!_controller.isLocating || !_controller.isVideo) return;
+    final aid = _controller.fromViewAid;
+    if (aid == null || aid.isEmpty) return;
+    final index = _controller.loadingState.value.dataOrNull?.indexWhere(
+          (item) => item.param == aid || item.bvid == aid,
+        ) ??
+        -1;
+    if (index >= 0) {
+      _controller.setIsLocating(false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _jumpToIndex(index);
+      });
+    } else if (_controller.hasPrev != true) {
+      await _tryLocateReplaySeries(aid);
+    }
+  }
+
+  Future<void> _tryLocateReplaySeries(String aid) async {
+    if (_controller.isSeriesFallbackStarted) return;
+    _controller.isSeriesFallbackStarted = true;
+    try {
+      final memberController = Get.find<MemberController>(tag: widget.heroTag);
+      final result = await memberController.locateSeries(aid);
+      if (!mounted) return;
+      _controller.setIsLocating(false);
+      if (result != null) {
+        Get.find<MemberContributeCtr>(tag: widget.heroTag).locateSeries(result);
+      } else {
+        SmartDialog.showToast('未找到上次观看的直播回放');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _controller.setIsLocating(false);
+      SmartDialog.showToast('直播回放定位失败：$e');
+    }
+  }
+
+  Future<void> _locateFromViewAid() async {
+    final aid = _controller.fromViewAid;
+    if (aid == null || aid.isEmpty || _controller.isLoading) return;
+    _controller
+      ..setIsLocating(true)
+      ..lastAid = aid
+      ..reload = true
+      ..page = 0
+      ..loadingState.value = LoadingState.loading();
+    await _controller.queryData();
+    await _finishOriginalLocateIfNeeded();
   }
 
   Future<void> _onRefresh() {
@@ -126,6 +221,8 @@ class _MemberVideoState extends State<MemberVideo>
           _controller
             ..isLoadPrevious = true
             ..refreshKey!.currentState?.show();
+        } else if (_controller.hasPrev == false && !_controller.isLoading) {
+          _finishOriginalLocateIfNeeded();
         }
       }
       return true;
@@ -171,13 +268,7 @@ class _MemberVideoState extends State<MemberVideo>
                                 ) ??
                             -1;
                         if (locatedIndex == -1) {
-                          _controller
-                            ..setIsLocating(true)
-                            ..lastAid = fromViewAid
-                            ..reload = true
-                            ..page = 0
-                            ..loadingState.value = LoadingState.loading()
-                            ..queryData();
+                          _locateFromViewAid();
                         } else {
                           _controller.setIsLocating(
                             true,
