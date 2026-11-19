@@ -200,7 +200,6 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
               contributeInitialIndex.value = i;
               replaySeriesToLocate.value = seriesId;
               tabController?.animateTo(contributeIndex);
-              SmartDialog.showToast('已定位到上次观看的直播回放');
               return true;
             }
             final next = response.next;
